@@ -93,6 +93,25 @@
   .received-tag{display:flex;align-items:center;gap:6px;background:var(--green-light);color:var(--green);font-size:11.5px;font-weight:700;border-radius:var(--r-sm);padding:7px 10px;margin-top:8px}
   @keyframes badgePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
   .tab-count.pulse{animation:badgePulse 1.2s ease-in-out infinite}
+  /* ===== توهج مؤقت لتحديد الطلب بعد الذهاب إليه من الإشعار ===== */
+  .card.jump-highlight{animation:jumpFlash 1.8s ease-in-out 3}
+  @keyframes jumpFlash{
+    0%,100%{box-shadow:0 0 0 0 rgba(26,127,232,0);border-color:var(--red)}
+    50%{box-shadow:0 0 0 8px rgba(26,127,232,.35);border-color:var(--blue)}
+  }
+  /* ===== إشعار الطلب الجديد المركزي ===== */
+  .new-order-popup{background:#fff;border-radius:20px;padding:28px 24px 22px;width:min(92vw,380px);text-align:center;box-shadow:0 10px 50px rgba(0,0,0,.35);animation:popupPop .35s cubic-bezier(.34,1.56,.64,1);position:relative}
+  @keyframes popupPop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+  .new-order-popup-ring{width:76px;height:76px;border-radius:50%;background:var(--red-light);display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 16px;animation:ringGlow 1.2s ease-in-out infinite}
+  @keyframes ringGlow{
+    0%,100%{box-shadow:0 0 0 0 rgba(226,75,74,.55)}
+    50%{box-shadow:0 0 0 16px rgba(226,75,74,0)}
+  }
+  .new-order-popup-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:14px}
+  .new-order-popup-list{display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto}
+  .new-order-popup-item{background:var(--gray-50);border-radius:var(--r-sm);padding:10px 12px;text-align:right}
+  .new-order-popup-item .np-name{font-size:13.5px;font-weight:700;color:var(--text)}
+  .new-order-popup-item .np-meta{font-size:11px;color:var(--text-muted);margin-top:2px}
   .card-head{padding:11px 13px;display:flex;justify-content:space-between;align-items:flex-start}
   .card-body{padding:8px 13px 11px;border-top:.5px solid var(--gray-border)}
   .card-footer{padding:8px 13px;border-top:.5px solid var(--gray-border);display:flex;gap:8px}
@@ -100,6 +119,20 @@
   .order-meta{font-size:10px;color:var(--text-muted);margin-top:2px}
   .order-items-text{font-size:14.5px;font-weight:700;color:var(--text);line-height:1.9}
   .addition-block{background:var(--orange-light);border-radius:var(--r-sm);padding:7px 10px;margin-top:8px}
+  .cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-weight:800;font-size:14px}
+  .cal-header button{background:var(--gray-100);border:none;border-radius:8px;width:34px;height:34px;font-size:14px;cursor:pointer}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cal-weekdays{margin-bottom:4px}
+  .cal-wd{text-align:center;font-size:10px;color:var(--text-muted);font-weight:700;padding:4px 0}
+  .cal-cell{aspect-ratio:1;border-radius:8px;background:var(--gray-50);padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;cursor:pointer;overflow:hidden;font-size:9px;border:1.5px solid transparent}
+  .cal-cell.empty{background:none;cursor:default}
+  .cal-cell.has-orders{background:var(--blue-light);border-color:var(--blue)}
+  .cal-cell.selected{background:var(--blue);border-color:var(--blue-dark)}
+  .cal-cell.selected .cal-daynum,.cal-cell.selected .cal-count{color:#fff}
+  .cal-daynum{font-weight:800;font-size:12px}
+  .cal-count{font-size:8px;color:var(--blue-dark);font-weight:700;margin-top:1px}
+  .cal-clients{display:flex;flex-wrap:wrap;gap:1px;justify-content:center;margin-top:1px;width:100%}
+  .cal-client-tag{font-size:6.5px;background:#fff;border-radius:4px;padding:0 2px;color:var(--text-sub);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .addition-label{font-size:11px;font-weight:600;color:var(--orange);margin-bottom:3px}
 
   /* ===== BADGES ===== */
@@ -242,6 +275,18 @@
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
   .modal-overlay.open{display:flex}
   .modal-sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-height:90vh;overflow-y:auto;padding:20px 16px 32px}
+  /* ===== عرض تفاصيل الطلب في شاشة كاملة عند الكاشير — لسهولة القراءة ===== */
+  .modal-overlay.fullscreen-modal{align-items:stretch;justify-content:stretch}
+  .modal-overlay.fullscreen-modal .order-detail-sheet{width:100%;height:100%;max-height:100vh;border-radius:0;padding:22px 20px 40px}
+  .order-detail-hdr{text-align:center;padding-bottom:16px;margin-bottom:18px;border-bottom:3px solid var(--blue)}
+  .order-detail-hdr .od-client{font-size:22px;font-weight:800;color:var(--text)}
+  .order-detail-hdr .od-num{font-size:15px;color:var(--blue);font-weight:700;margin-top:4px}
+  .order-detail-hdr .od-time{font-size:12.5px;color:var(--text-muted);margin-top:4px}
+  .od-section-title{font-size:14px;font-weight:800;color:var(--blue);margin:18px 0 10px}
+  .od-item-card{background:var(--gray-50);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+  .od-item-name{font-size:17px;font-weight:800;color:var(--text)}
+  .od-item-meta{font-size:14.5px;font-weight:700;color:var(--text-sub);margin-top:4px}
+  .od-item-note{font-size:13px;color:var(--orange);margin-top:6px;font-weight:600}
   .modal-handle{width:40px;height:4px;background:var(--gray-border);border-radius:2px;margin:0 auto 16px}
   .modal-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px}
   .modal-close{position:absolute;top:16px;left:16px;background:none;border:none;font-size:22px;color:var(--text-muted);cursor:pointer;line-height:1}
@@ -686,11 +731,41 @@
 </div>
 
 <!-- Order detail modal (cashier) -->
-<div class="modal-overlay" id="modal-order-detail">
-  <div class="modal-sheet" style="position:relative;max-height:88vh">
-    <div class="modal-handle"></div>
+<div class="modal-overlay fullscreen-modal" id="modal-order-detail">
+  <div class="modal-sheet order-detail-sheet" style="position:relative">
     <button class="modal-close" onclick="closeModal('modal-order-detail')">✕</button>
     <div id="order-detail-content"></div>
+  </div>
+</div>
+
+<!-- اختيار عميل لطباعة طلباته -->
+<div class="modal-overlay" id="modal-print-client">
+  <div class="modal-sheet" style="position:relative;max-height:80vh;overflow-y:auto">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeModal('modal-print-client')">✕</button>
+    <p class="modal-title">👤 اختر عميل لطباعة طلباته</p>
+    <div class="audit-list" id="print-client-list"></div>
+  </div>
+</div>
+
+<!-- طباعة حسب التقويم -->
+<div class="modal-overlay" id="modal-print-calendar">
+  <div class="modal-sheet" style="position:relative;max-height:88vh;overflow-y:auto">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeModal('modal-print-calendar')">✕</button>
+    <p class="modal-title">📅 اختر يوم لطباعة طلباته</p>
+    <div id="print-calendar-body"></div>
+  </div>
+</div>
+
+<!-- إشعار الطلب الجديد — يظهر في منتصف الشاشة بتوهج لحد ما الكاشير يتصرف -->
+<div class="modal-overlay" id="modal-new-order-popup" style="align-items:center">
+  <div class="new-order-popup">
+    <div class="new-order-popup-ring">🔔</div>
+    <div class="new-order-popup-title" id="new-order-popup-title">طلب جديد وصل!</div>
+    <div class="new-order-popup-list" id="new-order-popup-list"></div>
+    <button class="btn btn-blue btn-full" style="height:46px;margin-top:16px" onclick="goToPendingOrder()">👁️ الذهاب للطلب</button>
+    <button class="btn btn-ghost btn-full" style="height:40px;margin-top:8px" onclick="dismissNewOrderPopup()">تم</button>
   </div>
 </div>
 
@@ -741,6 +816,7 @@ let custCurrentCat = null;
 let adminTaps = 0;
 let adminTapTimer = null;
 let bellMuted = false;
+let pendingNewOrders = []; // الطلبات الجديدة اللي لسه العرض المتوهج بتاعها ما اتقفلش
 let modalProduct = null; // المنتج اللي في المودال
 let modalSelectedUnit = '';
 let modalQtyVal = 1;
@@ -1552,13 +1628,37 @@ function updateCashierTime(){
   const d=new Date();
   $('cashier-datetime').textContent=d.toLocaleDateString('ar-EG')+' · '+d.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
 }
+let _ordersBaselineReady=false;
+let _knownOrderKeys=new Set();
 function listenOrders(){
+  _ordersBaselineReady=false;
+  _knownOrderKeys=new Set();
   db.ref('factory/orders').on('value', snap=>{
-    orders={};
-    snap.forEach(o=>{ orders[o.key]={key:o.key,...o.val()}; });
+    const freshOrders={};
+    const freshKeys=new Set();
+    snap.forEach(o=>{ freshOrders[o.key]={key:o.key,...o.val()}; freshKeys.add(o.key); });
+
+    if(currentRole==='cashier'){
+      if(_ordersBaselineReady){
+        // نكتشف بس الطلبات اللي "جديد" فعلاً وظهرت لأول مرة من بعد ما الكاشير سجل دخول (مش الطلبات القديمة الموجودة أصلاً)
+        let newlyDetected=0;
+        freshKeys.forEach(k=>{
+          if(!_knownOrderKeys.has(k) && freshOrders[k].status==='new' && !freshOrders[k].archived){
+            pendingNewOrders.push(freshOrders[k]);
+            newlyDetected++;
+          }
+        });
+        if(newlyDetected>0 && !bellMuted) playBell();
+      } else {
+        _ordersBaselineReady=true;
+      }
+    }
+    _knownOrderKeys=freshKeys;
+    orders=freshOrders;
     if(currentRole==='cashier') refreshCashierTab();
     if(currentRole==='admin') refreshAdminTab();
     checkNewOrders();
+    if(currentRole==='cashier' && pendingNewOrders.length) showNewOrderPopup();
   });
 }
 function checkNewOrders(){
@@ -1566,24 +1666,60 @@ function checkNewOrders(){
   const newOnes=Object.values(orders).filter(o=>!o.archived&&(o.status==='new'||o.hasNewAddition));
   $('new-count-badge').textContent=newOnes.length;
   $('new-count-badge').classList.toggle('pulse', newOnes.length>0);
-  if(newOnes.length&&!bellMuted) playBell();
+}
+// ============================================================
+// إشعار الطلب الجديد المركزي المتوهج — بيفضل ظاهر لحد ما الكاشير يضغط "الذهاب للطلب" أو "تم"
+// ============================================================
+function showNewOrderPopup(){
+  if(!pendingNewOrders.length) return;
+  $('new-order-popup-title').textContent=pendingNewOrders.length>1?(pendingNewOrders.length+' طلبات جديدة وصلت!'):'طلب جديد وصل!';
+  $('new-order-popup-list').innerHTML=pendingNewOrders.map(o=>`
+    <div class="new-order-popup-item">
+      <div class="np-name">${o.clientName} — #${o.key.slice(-4).toUpperCase()}</div>
+      <div class="np-meta">${(o.items||[]).length} صنف · ${fmtTime(o.ts)}</div>
+    </div>`).join('');
+  openModal('modal-new-order-popup');
+}
+function goToPendingOrder(){
+  const target=pendingNewOrders[0];
+  closeModal('modal-new-order-popup');
+  pendingNewOrders=[];
+  if(!target) return;
+  cashierTab('new');
+  // نستنى لحد ما القائمة تترندر، وبعدين نعمل سكرول للطلب ونديله توهج مؤقت يميّزه
+  setTimeout(()=>{
+    const el=$('order-card-'+target.key);
+    if(el){
+      el.scrollIntoView({behavior:'smooth', block:'center'});
+      el.classList.add('jump-highlight');
+      setTimeout(()=>el.classList.remove('jump-highlight'), 5600);
+    }
+  }, 150);
+}
+function dismissNewOrderPopup(){
+  closeModal('modal-new-order-popup');
+  pendingNewOrders=[];
 }
 function playBell(){
   try{
     if(!window._bellCtx) window._bellCtx=new (window.AudioContext||window.webkitAudioContext)();
     const ctx=window._bellCtx;
     if(ctx.state==='suspended') ctx.resume();
-    const beep=(freq,start,dur)=>{
+    const beep=(freq,start,dur,vol)=>{
       const osc=ctx.createOscillator(), gain=ctx.createGain();
       osc.type='sine'; osc.frequency.value=freq;
       gain.gain.setValueAtTime(0.0001, ctx.currentTime+start);
-      gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime+start+0.02);
+      gain.gain.exponentialRampToValueAtTime(vol||0.5, ctx.currentTime+start+0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+start+dur);
       osc.connect(gain); gain.connect(ctx.destination);
       osc.start(ctx.currentTime+start);
       osc.stop(ctx.currentTime+start+dur+0.03);
     };
-    beep(880,0,.16); beep(1108,.19,.2);
+    // نغمة "دينج-دونج" واضحة ومكررة مرتين عشان تلفت الانتباه فعليًا
+    beep(988,0,.22,.55);   // Si
+    beep(1319,.24,.30,.55); // Mi
+    beep(988,.68,.18,.4);
+    beep(1319,.90,.26,.4);
   }catch(e){}
   $('bell-btn').style.color='var(--red)';
 }
@@ -1632,7 +1768,7 @@ function renderCashierNew(){
 function cashierOrderCard(o, type){
   const adds=o.additions?Object.values(o.additions).sort((a,b)=>a.ts-b.ts):[];
   const addHtml=adds.map((a,i)=>`<div class="addition-block"><div class="addition-label">⚠️ [إضافة رقم ${i+1}] — ${fmtTime(a.ts)}</div><div class="addition-items" style="font-size:13.5px;font-weight:700;color:var(--text)">${(a.items||[]).map(it=>`${it.name} × ${it.qty} ${it.unit}${it.photoCount?' 📷×'+it.photoCount:''}`).join(' · ')}</div></div>`).join('');
-  return `<div class="card order-glow">
+  return `<div class="card order-glow" id="order-card-${o.key}">
     <div class="card-head">
       <div><div class="client-name">${o.clientName}</div><div class="order-meta">#${o.key.slice(-4).toUpperCase()} · ${fmtTime(o.ts)}</div></div>
       ${type==='addition'?`<span class="badge badge-purple">🟠 إضافة جديدة</span>`:`<span class="badge badge-new"><span class="badge-dot" style="background:var(--red)"></span>جديد</span>`}
@@ -1706,7 +1842,8 @@ function renderCashierPrint(){
   return `<div class="menu-list" style="margin-top:8px">
     <div class="menu-item" onclick="printTodayAll()"><div class="menu-icon-box" style="background:var(--blue-light)">🖨️</div><div class="menu-texts"><div class="menu-title">طباعة طلبات اليوم</div><div class="menu-sub">كل الطلبات الجديدة والجارية</div></div></div>
     <div class="menu-item" onclick="printNewOnly()"><div class="menu-icon-box" style="background:var(--red-light)">🔴</div><div class="menu-texts"><div class="menu-title">طباعة الطلبات الجديدة فقط</div><div class="menu-sub">اللي لسه متستلمتش</div></div></div>
-    <div class="menu-item" onclick="printByClient()"><div class="menu-icon-box" style="background:var(--green-light)">👤</div><div class="menu-texts"><div class="menu-title">طباعة طلبات عميل</div><div class="menu-sub">اختر عميل وطبع طلباته</div></div></div>
+    <div class="menu-item" onclick="openPrintByClient()"><div class="menu-icon-box" style="background:var(--green-light)">👤</div><div class="menu-texts"><div class="menu-title">طباعة طلبات عميل</div><div class="menu-sub">اختر عميل وطبع طلباته</div></div></div>
+    <div class="menu-item" onclick="openPrintCalendar()"><div class="menu-icon-box" style="background:var(--purple-light)">📅</div><div class="menu-texts"><div class="menu-title">طباعة حسب التقويم</div><div class="menu-sub">اختار يوم معين واطبع طلباته</div></div></div>
   </div>`;
 }
 function renderCashierExcel(){
@@ -1739,32 +1876,42 @@ function viewOrderDetail(key){
   const o=orders[key];
   if(!o) return;
   const adds=o.additions?Object.values(o.additions).sort((a,b)=>a.ts-b.ts):[];
-  let html=`<div class="modal-title">${o.clientName} — #${key.slice(-4).toUpperCase()}</div>
-  <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">${fmtDateTime(o.ts)}</div>
-  <div style="font-size:12px;font-weight:600;color:var(--text-sub);margin-bottom:6px">الطلب الأصلي:</div>
-  <div class="audit-list" style="margin-bottom:12px">`;
+  const statusMap={new:'🔴 جديد',received:'🟡 جاري التجهيز',ready:'🟢 جاهز'};
+  let html=`<div class="order-detail-hdr">
+    <div class="od-client">${o.clientName}</div>
+    <div class="od-num">طلب #${key.slice(-4).toUpperCase()} — ${statusMap[o.status]||o.status||''}</div>
+    <div class="od-time">${fmtDateTime(o.ts)}</div>
+  </div>
+  <div class="od-section-title">📋 الطلب الأصلي</div>`;
   (o.items||[]).forEach(i=>{
-    html+=`<div class="audit-item"><span style="font-size:13px">${i.emoji||'📦'}</span><div style="flex:1"><div style="font-size:12px;font-weight:600">${i.name}</div><div style="font-size:11px;color:var(--text-muted)">${i.unit} × ${i.qty}${i.note?' — '+i.note:''}${i.photoCount?' — 📷×'+i.photoCount:''}</div></div></div>`;
+    html+=`<div class="od-item-card">
+      <div class="od-item-name">${i.emoji?i.emoji+' ':''}${i.name}</div>
+      <div class="od-item-meta">${i.unit} × ${i.qty}${i.photoCount?' — 📷×'+i.photoCount:''}</div>
+      ${i.note?`<div class="od-item-note">📝 ${i.note}</div>`:''}
+    </div>`;
   });
-  html+=`</div>`;
   adds.forEach((a,i)=>{
-    html+=`<div class="addition-block" style="margin-bottom:10px"><div class="addition-label">⚠️ [إضافة رقم ${i+1}] — ${fmtTime(a.ts)}</div>`;
-    (a.items||[]).forEach(it=>{ html+=`<div style="font-size:11px;color:var(--text-sub);padding:2px 0">${it.name} × ${it.qty} ${it.unit}${it.photoCount?' 📷×'+it.photoCount:''}</div>`; });
-    html+=`</div>`;
+    html+=`<div class="od-section-title" style="color:var(--orange)">⚠️ إضافة رقم ${i+1} — ${fmtTime(a.ts)}</div>`;
+    (a.items||[]).forEach(it=>{
+      html+=`<div class="od-item-card" style="background:var(--orange-light)">
+        <div class="od-item-name">${it.emoji?it.emoji+' ':''}${it.name}</div>
+        <div class="od-item-meta">${it.unit} × ${it.qty}${it.photoCount?' — 📷×'+it.photoCount:''}</div>
+        ${it.note?`<div class="od-item-note">📝 ${it.note}</div>`:''}
+      </div>`;
+    });
   });
-  if(o.receivedBy) html+=`<div class="received-tag" style="margin-top:8px">✅ تم استلام الأوردر من قبل المحاسب: ${o.receivedBy} — ${fmtTime(o.receivedAt)}</div>`;
-  if(orderHasPhotos(o)) html+=`<a href="resume.html?id=${key}" target="_blank" class="btn btn-outline btn-full" style="height:40px;margin-top:10px;text-decoration:none">📷 عرض/تحميل الصور المرفقة</a>`;
-  html+=`<div style="display:flex;gap:8px;margin-top:14px">
-    <button class="btn btn-blue" style="flex:1;height:42px" onclick="printOrder('${key}');closeModal('modal-order-detail')">🖨️ طباعة الطلب</button>
-    <button class="btn btn-ghost" style="height:42px" onclick="closeModal('modal-order-detail')">إغلاق</button>
+  if(o.receivedBy) html+=`<div class="received-tag" style="margin-top:8px;font-size:13px">✅ تم استلام الأوردر من قبل المحاسب: ${o.receivedBy} — ${fmtTime(o.receivedAt)}</div>`;
+  if(orderHasPhotos(o)) html+=`<a href="resume.html?id=${key}" target="_blank" class="btn btn-outline btn-full" style="height:46px;margin-top:14px;text-decoration:none;font-size:14px">📷 عرض/تحميل الصور المرفقة</a>`;
+  html+=`<div style="display:flex;gap:10px;margin-top:20px">
+    <button class="btn btn-blue" style="flex:1;height:48px;font-size:14.5px" onclick="printOrder('${key}');closeModal('modal-order-detail')">🖨️ طباعة الطلب</button>
+    <button class="btn btn-ghost" style="height:48px;font-size:14.5px" onclick="closeModal('modal-order-detail')">إغلاق</button>
   </div>`;
   $('order-detail-content').innerHTML=html;
   openModal('modal-order-detail');
 }
-function printOrder(key){
-  const o=orders[key]; if(!o) return;
+// بيبني محتوى ورقة طلب واحد (من غير غلاف الصفحة) — قابل لإعادة الاستخدام في الطباعة المفردة والمجمعة
+function buildOrderSheetHTML(o, key){
   const adds=o.additions?Object.values(o.additions).sort((a,b)=>a.ts-b.ts):[];
-  const w=window.open('','_blank','width=480,height=700');
   const totalItems=(o.items||[]).length;
   const photoLink=orderHasPhotos(o)?`resume.html?id=${key}`:'';
 
@@ -1779,11 +1926,43 @@ function printOrder(key){
       <td class="c-qty">${i.qty}</td>
     </tr>`;
 
-  let body=`<html dir="rtl"><head><meta charset="UTF-8"><title>طلب #${key.slice(-4).toUpperCase()}</title><style>
+  return `<div class="sheet">
+    <div class="hdr">
+      <div class="brand">ZamZam Dessert Factory</div>
+      <div class="brand-sub">نظام إدارة طلبات المصنع</div>
+    </div>
+    <div class="order-num">طلب #${key.slice(-4).toUpperCase()}</div>
+    <div class="meta">
+      <div class="meta-row"><span class="k">العميل</span><span class="v">${o.clientName||''}</span></div>
+      <div class="meta-row"><span class="k">كود العميل</span><span class="v">${o.customerId||''}</span></div>
+      <div class="meta-row"><span class="k">التاريخ والوقت</span><span class="v">${fmtDateTime(o.ts)}</span></div>
+      <div class="meta-row"><span class="k">الحالة</span><span class="v">${o.status==='new'?'جديد':o.status==='received'?'جاري التجهيز':'جاهز'}</span></div>
+    </div>
+
+    <div class="section-title">الطلب الأصلي</div>
+    <table class="items"><thead><tr><th></th><th class="c-name">المنتج</th><th>الوحدة</th><th>الكمية</th></tr></thead><tbody>
+      ${(o.items||[]).map(itemRow).join('')}
+    </tbody></table>
+    <div class="total-row"><span>عدد الأصناف بالطلب</span><span>${totalItems}</span></div>
+    ${adds.map((a,i)=>`<div class="addition-box">
+      <div class="addition-title">⚠️ إضافة رقم ${i+1} — ${fmtTime(a.ts)}</div>
+      ${(a.items||[]).map(it=>`<div class="addition-item">${it.emoji?it.emoji+' ':''}${it.name} — ${it.unit} × ${it.qty}${it.note?' — 📝 '+it.note:''}${it.photoCount?' — 📷×'+it.photoCount:''}</div>`).join('')}
+    </div>`).join('')}
+    ${photoLink?`<div class="photo-note">📷 الطلب فيه صور مرفقة — لعرضها وتحميلها: ${photoLink}</div>`:''}
+    <div class="footer">
+      ${o.receivedBy?`تم استلام الأوردر من قبل المحاسب: ${o.receivedBy} — ${fmtTime(o.receivedAt)}<br>`:''}
+      طُبع بواسطة: ${currentUser?currentUser.name:''} — ${fmtDateTime(Date.now())}
+    </div>
+  </div>`;
+}
+// بيبني مستند HTML كامل حوالين عدد من ورقات الطلبات، بفاصل صفحة بين كل ورقة والتانية
+function wrapPrintDoc(innerHtml, title){
+  return `<html dir="rtl"><head><meta charset="UTF-8"><title>${title}</title><style>
     @page{ margin:10mm }
     *{box-sizing:border-box}
     body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:13.5px;color:#17181a;padding:0;margin:0;background:#fff}
-    .sheet{max-width:440px;margin:0 auto;padding:18px 20px}
+    .sheet{max-width:440px;margin:0 auto;padding:18px 20px;page-break-after:always}
+    .sheet:last-child{page-break-after:auto}
     .hdr{text-align:center;padding-bottom:14px;margin-bottom:14px;border-bottom:3px solid #1A7FE8}
     .hdr .brand{font-size:19px;font-weight:800;color:#1A7FE8;letter-spacing:.3px}
     .hdr .brand-sub{font-size:11px;color:#888;margin-top:3px}
@@ -1811,56 +1990,127 @@ function printOrder(key){
     .photo-note{margin-top:14px;background:#eaf3de;border-radius:8px;padding:10px 12px;font-size:11.5px;color:#3b7a1f;text-align:center;font-weight:700}
     .footer{margin-top:20px;border-top:2px solid #1A7FE8;padding-top:10px;font-size:11px;color:#777;text-align:center;line-height:1.8}
     @media print{ .sheet{padding:0} }
-  </style></head><body>
-  <div class="sheet">
-    <div class="hdr">
-      <div class="brand">ZamZam Dessert Factory</div>
-      <div class="brand-sub">نظام إدارة طلبات المصنع</div>
-    </div>
-    <div class="order-num">طلب #${key.slice(-4).toUpperCase()}</div>
-    <div class="meta">
-      <div class="meta-row"><span class="k">العميل</span><span class="v">${o.clientName||''}</span></div>
-      <div class="meta-row"><span class="k">كود العميل</span><span class="v">${o.customerId||''}</span></div>
-      <div class="meta-row"><span class="k">التاريخ والوقت</span><span class="v">${fmtDateTime(o.ts)}</span></div>
-      <div class="meta-row"><span class="k">الحالة</span><span class="v">${o.status==='new'?'جديد':o.status==='received'?'جاري التجهيز':'جاهز'}</span></div>
-    </div>
-
-    <div class="section-title">الطلب الأصلي</div>
-    <table class="items"><thead><tr><th></th><th class="c-name">المنتج</th><th>الوحدة</th><th>الكمية</th></tr></thead><tbody>
-      ${(o.items||[]).map(itemRow).join('')}
-    </tbody></table>
-    <div class="total-row"><span>عدد الأصناف بالطلب</span><span>${totalItems}</span></div>
-    ${adds.map((a,i)=>`<div class="addition-box">
-      <div class="addition-title">⚠️ إضافة رقم ${i+1} — ${fmtTime(a.ts)}</div>
-      ${(a.items||[]).map(it=>`<div class="addition-item">${it.emoji?it.emoji+' ':''}${it.name} — ${it.unit} × ${it.qty}${it.note?' — 📝 '+it.note:''}${it.photoCount?' — 📷×'+it.photoCount:''}</div>`).join('')}
-    </div>`).join('')}
-    ${photoLink?`<div class="photo-note">📷 الطلب فيه صور مرفقة — لعرضها وتحميلها: ${photoLink}</div>`:''}
-    <div class="footer">
-      ${o.receivedBy?`تم استلام الأوردر من قبل المحاسب: ${o.receivedBy} — ${fmtTime(o.receivedAt)}<br>`:''}
-      طُبع بواسطة: ${currentUser?currentUser.name:''} — ${fmtDateTime(Date.now())}
-    </div>
-  </div>
-  </body></html>`;
-  w.document.write(body);
+  </style></head><body>${innerHtml}</body></html>`;
+}
+function printOrder(key){
+  const o=orders[key]; if(!o) return;
+  const w=window.open('','_blank','width=480,height=700');
+  if(!w){ toast('⚠️ المتصفح منع فتح نافذة الطباعة — اسمح بالنوافذ المنبثقة لهذا الموقع'); return; }
+  w.document.write(wrapPrintDoc(buildOrderSheetHTML(o,key), 'طلب #'+key.slice(-4).toUpperCase()));
   w.document.close();
   w.print();
   addAudit('طباعة طلب','#'+key.slice(-4).toUpperCase()+' — '+currentUser.name);
 }
+// طباعة مجمعة — كل الطلبات المطلوبة في نافذة واحدة بس (بيحل مشكلة منع النوافذ المتعددة من المتصفح)
+function printOrdersBulk(orderList, title){
+  if(!orderList.length){ toast('⚠️ مفيش طلبات لطباعتها'); return; }
+  const w=window.open('','_blank','width=480,height=700');
+  if(!w){ toast('⚠️ المتصفح منع فتح نافذة الطباعة — اسمح بالنوافذ المنبثقة لهذا الموقع'); return; }
+  const innerHtml=orderList.map(o=>buildOrderSheetHTML(o,o.key)).join('');
+  w.document.write(wrapPrintDoc(innerHtml, title));
+  w.document.close();
+  w.print();
+  addAudit('طباعة مجمعة', title+' — '+orderList.length+' طلب — '+currentUser.name);
+}
 function printTodayAll(){
   const today=new Date(); today.setHours(0,0,0,0);
-  const todayOrders=Object.values(orders).filter(o=>o.ts>=today.getTime()&&(o.status==='new'||o.status==='received')).sort((a,b)=>a.ts-b.ts);
-  if(!todayOrders.length){ toast('مفيش طلبات اليوم'); return; }
-  todayOrders.forEach(o=>printOrder(o.key));
+  const tomorrow=today.getTime()+86400000;
+  const todayOrders=Object.values(orders).filter(o=>!o.archived&&o.ts>=today.getTime()&&o.ts<tomorrow&&(o.status==='new'||o.status==='received')).sort((a,b)=>a.ts-b.ts);
+  printOrdersBulk(todayOrders, 'طلبات اليوم');
 }
 function printNewOnly(){
-  Object.values(orders).filter(o=>o.status==='new').forEach(o=>printOrder(o.key));
+  const newOrders=Object.values(orders).filter(o=>!o.archived&&o.status==='new').sort((a,b)=>a.ts-b.ts);
+  printOrdersBulk(newOrders, 'الطلبات الجديدة');
 }
-function printByClient(){
-  const names=[...new Set(Object.values(orders).map(o=>o.clientName))];
-  if(!names.length){ toast('مفيش عملاء'); return; }
-  const choice=prompt('اكتب اسم العميل:\n'+names.join('\n'));
-  if(!choice) return;
-  Object.values(orders).filter(o=>o.clientName===choice).forEach(o=>printOrder(o.key));
+function openPrintByClient(){
+  const counts={};
+  Object.values(orders).forEach(o=>{ if(!o.archived) counts[o.clientName]=(counts[o.clientName]||0)+1; });
+  const names=Object.keys(counts).sort((a,b)=>a.localeCompare(b));
+  const el=$('print-client-list');
+  if(!names.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-state-icon">👤</div><p>مفيش طلبات لأي عميل حاليًا</p></div>';
+  } else {
+    el.innerHTML=names.map(n=>`<div class="audit-item" style="cursor:pointer;justify-content:space-between" onclick="printClientOrders(${JSON.stringify(n)})"><span style="font-size:13px;font-weight:600">${n}</span><span class="badge badge-new">${counts[n]} طلب</span></div>`).join('');
+  }
+  openModal('modal-print-client');
+}
+function printClientOrders(name){
+  closeModal('modal-print-client');
+  const clientOrders=Object.values(orders).filter(o=>!o.archived&&o.clientName===name).sort((a,b)=>a.ts-b.ts);
+  printOrdersBulk(clientOrders, 'طلبات '+name);
+}
+// ============================================================
+// طباعة حسب التقويم — اختيار يوم معين وطباعة كل طلباته
+// ============================================================
+let calendarViewDate=new Date();
+let calendarSelectedDay=null;
+function openPrintCalendar(){
+  calendarViewDate=new Date();
+  calendarSelectedDay=null;
+  renderPrintCalendar();
+  openModal('modal-print-calendar');
+}
+function calShiftMonth(delta){
+  calendarViewDate=new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth()+delta, 1);
+  calendarSelectedDay=null;
+  renderPrintCalendar();
+}
+function calSelectDay(day){
+  calendarSelectedDay=day;
+  renderPrintCalendar();
+}
+function renderPrintCalendar(){
+  const year=calendarViewDate.getFullYear();
+  const month=calendarViewDate.getMonth();
+  const firstDay=new Date(year,month,1);
+  const startWeekday=firstDay.getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+
+  const dayInfo={};
+  Object.values(orders).forEach(o=>{
+    if(o.archived) return;
+    const d=new Date(o.ts);
+    if(d.getFullYear()===year && d.getMonth()===month){
+      const day=d.getDate();
+      if(!dayInfo[day]) dayInfo[day]={count:0, clients:new Set()};
+      dayInfo[day].count++;
+      dayInfo[day].clients.add(o.clientName);
+    }
+  });
+
+  const monthNames=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  let html=`<div class="cal-header">
+    <button onclick="calShiftMonth(-1)">◀</button>
+    <span>${monthNames[month]} ${year}</span>
+    <button onclick="calShiftMonth(1)">▶</button>
+  </div>`;
+  html+=`<div class="cal-grid cal-weekdays">${['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'].map(d=>`<div class="cal-wd">${d}</div>`).join('')}</div>`;
+  html+=`<div class="cal-grid">`;
+  for(let i=0;i<startWeekday;i++) html+=`<div class="cal-cell empty"></div>`;
+  for(let day=1;day<=daysInMonth;day++){
+    const info=dayInfo[day];
+    const isSelected=calendarSelectedDay===day;
+    const clientList=info?[...info.clients]:[];
+    const clientTags=info?(clientList.slice(0,2).map(c=>`<span class="cal-client-tag">${c}</span>`).join('')+(clientList.length>2?`<span class="cal-client-tag">+${clientList.length-2}</span>`:'')):'';
+    html+=`<div class="cal-cell${info?' has-orders':''}${isSelected?' selected':''}" onclick="calSelectDay(${day})">
+      <div class="cal-daynum">${day}</div>
+      ${info?`<div class="cal-count">${info.count} طلب</div>`:''}
+      <div class="cal-clients">${clientTags}</div>
+    </div>`;
+  }
+  html+=`</div>`;
+  html+=`<button class="btn btn-blue btn-full" style="margin-top:16px" ${calendarSelectedDay?'':'disabled'} onclick="printSelectedCalendarDay()">🖨️ طباعة طلبات اليوم المحدد</button>`;
+  $('print-calendar-body').innerHTML=html;
+}
+function printSelectedCalendarDay(){
+  if(!calendarSelectedDay) return;
+  const year=calendarViewDate.getFullYear();
+  const month=calendarViewDate.getMonth();
+  const dayStart=new Date(year,month,calendarSelectedDay,0,0,0,0).getTime();
+  const dayEnd=dayStart+86400000;
+  const dayOrders=Object.values(orders).filter(o=>!o.archived&&o.ts>=dayStart&&o.ts<dayEnd).sort((a,b)=>a.ts-b.ts);
+  closeModal('modal-print-calendar');
+  printOrdersBulk(dayOrders, 'طلبات يوم '+calendarSelectedDay+'/'+(month+1)+'/'+year);
 }
 async function exportExcel(){
   const from=$('excel-from').value;
