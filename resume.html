@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>الصور المرفقة — ZamZam Dessert Factory</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  :root{
+    --blue:#1A7FE8;--blue-dark:#0D5DBF;--blue-light:#E6F1FB;
+    --orange:#F5820D;--orange-light:#FEF3E7;
+    --green:#3B9422;
+    --gray-50:#F8F7F5;--gray-100:#EDECE8;--gray-border:#E2E0D9;
+    --text:#1A1917;--text-sub:#5F5E5A;--text-muted:#888780;
+    --r:14px;--r-sm:8px;
+    --shadow:0 2px 14px rgba(0,0,0,.07);
+  }
+  html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Tahoma,sans-serif;background:var(--gray-50);color:var(--text);font-size:14px;line-height:1.6}
+  .wrap{max-width:560px;margin:0 auto;padding:20px 16px 60px}
+  .brand{text-align:center;padding:18px 10px 20px}
+  .brand-title{font-size:19px;font-weight:800;color:var(--blue)}
+  .brand-sub{font-size:11.5px;color:var(--text-muted);margin-top:4px}
+  .card{background:#fff;border:.5px solid var(--gray-border);border-radius:var(--r);box-shadow:var(--shadow);padding:18px;margin-bottom:16px}
+  .order-num{text-align:center;background:linear-gradient(135deg,var(--blue-dark),var(--blue));color:#fff;font-size:19px;font-weight:800;letter-spacing:1.5px;border-radius:var(--r-sm);padding:12px;margin-bottom:16px}
+  .meta-row{display:flex;justify-content:space-between;padding:7px 2px;font-size:13px;border-bottom:1px solid var(--gray-100)}
+  .meta-row:last-child{border-bottom:none}
+  .meta-row .k{color:var(--text-muted)}
+  .meta-row .v{font-weight:700;color:var(--text)}
+  .section-title{font-size:12.5px;font-weight:800;color:var(--blue);margin:22px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--gray-100);letter-spacing:.2px}
+  .items-list{display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+  .item-row{display:flex;justify-content:space-between;align-items:center;background:var(--gray-50);border-radius:var(--r-sm);padding:9px 12px;font-size:12.5px}
+  .item-row .name{font-weight:700}
+  .item-row .qty{color:var(--text-muted);font-size:11.5px;white-space:nowrap}
+  .photo-block{background:#fff;border:.5px solid var(--gray-border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
+  .photo-block img{width:100%;display:block;max-height:520px;object-fit:contain;background:#111}
+  .photo-block .photo-foot{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;gap:10px}
+  .photo-block .photo-label{font-size:12px;color:var(--text-sub);font-weight:600}
+  .btn-dl{display:flex;align-items:center;gap:6px;background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;text-decoration:none}
+  .btn-dl:active{background:var(--blue-dark)}
+  .btn-dl-all{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:46px;background:var(--green);color:#fff;border:none;border-radius:var(--r-sm);font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:16px}
+  .state-box{text-align:center;padding:60px 20px;color:var(--text-muted)}
+  .state-box .icon{font-size:44px;margin-bottom:14px}
+  .spinner{width:26px;height:26px;border:3px solid var(--gray-border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .empty-photos{text-align:center;padding:30px;color:var(--text-muted);font-size:13px}
+  .footer-note{text-align:center;font-size:11px;color:var(--text-muted);margin-top:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-title">ZamZam Dessert Factory</div>
+    <div class="brand-sub">عرض وتحميل الصور المرفقة بالطلب</div>
+  </div>
+
+  <div id="content">
+    <div class="state-box">
+      <div class="spinner"></div>
+      <p>جاري تحميل بيانات الطلب...</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const fbConfig = {
+  apiKey: "AIzaSyBSPFRDD4_7nMHY_l1xAXLdWebhZvvbZkU",
+  authDomain: "zamzam-factory.firebaseapp.com",
+  databaseURL: "https://zamzam-factory-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "zamzam-factory",
+  storageBucket: "zamzam-factory.firebasestorage.app",
+  messagingSenderId: "905952234505",
+  appId: "1:905952234505:web:1fabb3bf380f21ab2c7cd8"
+};
+firebase.initializeApp(fbConfig);
+const db = firebase.database();
+
+function $(id){ return document.getElementById(id); }
+function fmtDateTime(ts){
+  if(!ts) return '';
+  const d=new Date(ts);
+  return d.toLocaleDateString('ar-EG')+' — '+d.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
+}
+// اسم ملف نظيف: اسم العميل-كود العميل-تاريخ-وقت
+function sanitizeForFilename(s){
+  return String(s||'').trim().replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
+}
+function buildFileName(clientName, customerId, ts, idx, total){
+  const d=new Date(ts||Date.now());
+  const pad=n=>String(n).padStart(2,'0');
+  const dateStr=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  const timeStr=pad(d.getHours())+'-'+pad(d.getMinutes());
+  let name=sanitizeForFilename(clientName)||'عميل';
+  let code=sanitizeForFilename(customerId)||'';
+  let base=name+(code?'-'+code:'')+'-'+dateStr+'-'+timeStr;
+  if(total>1) base+='-'+(idx+1);
+  return base+'.jpg';
+}
+function dataUrlToBlob(dataUrl){
+  const parts=dataUrl.split(',');
+  const meta=parts[0];
+  const mimeMatch=meta.match(/:(.*?);/);
+  const mime=mimeMatch?mimeMatch[1]:'image/jpeg';
+  const bstr=atob(parts[1]);
+  let n=bstr.length;
+  const u8=new Uint8Array(n);
+  while(n--){ u8[n]=bstr.charCodeAt(n); }
+  return new Blob([u8],{type:mime});
+}
+function downloadPhoto(dataUrl, filename, btnEl){
+  try{
+    const blob=dataUrlToBlob(dataUrl);
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  }catch(e){
+    // fallback: فتح الصورة في تاب جديد لو التحميل فشل لأي سبب
+    window.open(dataUrl,'_blank');
+  }
+}
+
+async function init(){
+  const params=new URLSearchParams(location.search);
+  const id=params.get('id');
+  if(!id){ showState('⚠️','مفيش رقم طلب في الرابط'); return; }
+
+  try{
+    const [orderSnap, photosSnap] = await Promise.all([
+      db.ref('factory/orders/'+id).once('value'),
+      db.ref('factory/orderPhotos/'+id).once('value')
+    ]);
+    if(!orderSnap.exists()){ showState('❌','الطلب غير موجود أو اتحذف'); return; }
+    const order=orderSnap.val();
+    const photosData=photosSnap.val()||{};
+    render(id, order, photosData);
+  }catch(e){
+    showState('⚠️','حصل خطأ أثناء تحميل البيانات، حاول تاني');
+  }
+}
+function showState(icon,msg){
+  $('content').innerHTML=`<div class="state-box"><div class="icon">${icon}</div><p>${msg}</p></div>`;
+}
+
+// بيجمع كل الصور (من الطلب الأصلي وأي إضافات) في قايمة واحدة، وكل صورة معاها اسم المنتج
+function collectPhotos(order, photosData){
+  const list=[];
+  const items=order.items||[];
+  items.forEach((it,idx)=>{
+    const key='item'+idx;
+    if(photosData[key]){
+      Object.keys(photosData[key]).sort((a,b)=>a-b).forEach(pIdx=>{
+        list.push({ data:photosData[key][pIdx], itemName:it.name, tag:'الطلب الأصلي' });
+      });
+    }
+  });
+  Object.keys(photosData).filter(k=>k.startsWith('addition_')).forEach(addKey=>{
+    const addItems=(order.additions&&order.additions[addKey.replace('addition_','')]&&order.additions[addKey.replace('addition_','')].items)||[];
+    const addPhotos=photosData[addKey];
+    Object.keys(addPhotos).forEach(itemKey=>{
+      const idx=parseInt(itemKey.replace('item',''),10);
+      const itName=(addItems[idx]&&addItems[idx].name)||'إضافة';
+      Object.keys(addPhotos[itemKey]).sort((a,b)=>a-b).forEach(pIdx=>{
+        list.push({ data:addPhotos[itemKey][pIdx], itemName:itName, tag:'إضافة على الطلب' });
+      });
+    });
+  });
+  return list;
+}
+
+function render(id, order, photosData){
+  const photos=collectPhotos(order, photosData);
+  const totalQty=(order.items||[]).reduce((s,i)=>s+(i.qty||0),0);
+  const statusMap={new:'جديد 🔴',received:'جاري التجهيز 🟡',ready:'جاهز 🟢'};
+
+  let html=`<div class="card">
+    <div class="order-num">طلب #${id.slice(-4).toUpperCase()}</div>
+    <div class="meta-row"><span class="k">اسم العميل</span><span class="v">${order.clientName||''}</span></div>
+    <div class="meta-row"><span class="k">كود العميل</span><span class="v">${order.customerId||''}</span></div>
+    <div class="meta-row"><span class="k">تاريخ ووقت الطلب</span><span class="v">${fmtDateTime(order.ts)}</span></div>
+    <div class="meta-row"><span class="k">حالة الطلب</span><span class="v">${statusMap[order.status]||order.status||''}</span></div>
+  </div>`;
+
+  html+=`<div class="section-title">📋 محتويات الطلب (${totalQty} قطعة)</div><div class="items-list">`;
+  (order.items||[]).forEach(i=>{
+    html+=`<div class="item-row"><span class="name">${i.emoji?i.emoji+' ':''}${i.name}</span><span class="qty">${i.unit} × ${i.qty}</span></div>`;
+  });
+  html+=`</div>`;
+
+  html+=`<div class="section-title">📷 الصور المرفقة (${photos.length})</div>`;
+  if(!photos.length){
+    html+=`<div class="empty-photos">مفيش صور مرفقة بهذا الطلب</div>`;
+  } else {
+    if(photos.length>1){
+      html+=`<button class="btn-dl-all" id="dlAllBtn">📥 تحميل كل الصور (${photos.length})</button>`;
+    }
+    photos.forEach((ph,idx)=>{
+      const fname=buildFileName(order.clientName, order.customerId, order.ts, idx, photos.length);
+      html+=`<div class="photo-block">
+        <img src="${ph.data}" alt="${ph.itemName}">
+        <div class="photo-foot">
+          <span class="photo-label">${ph.itemName} ${photos.length>1?'— '+ph.tag:''}</span>
+          <button class="btn-dl" data-idx="${idx}">📥 تحميل الصورة</button>
+        </div>
+      </div>`;
+    });
+  }
+
+  html+=`<div class="footer-note">ZamZam Dessert Factory — نظام إدارة طلبات المصنع</div>`;
+  $('content').innerHTML=html;
+
+  document.querySelectorAll('.btn-dl').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const idx=parseInt(btn.getAttribute('data-idx'),10);
+      const ph=photos[idx];
+      const fname=buildFileName(order.clientName, order.customerId, order.ts, idx, photos.length);
+      downloadPhoto(ph.data, fname, btn);
+    });
+  });
+  const dlAllBtn=$('dlAllBtn');
+  if(dlAllBtn){
+    dlAllBtn.addEventListener('click', async ()=>{
+      for(let idx=0; idx<photos.length; idx++){
+        const fname=buildFileName(order.clientName, order.customerId, order.ts, idx, photos.length);
+        downloadPhoto(photos[idx].data, fname);
+        await new Promise(r=>setTimeout(r,350));
+      }
+    });
+  }
+}
+
+init();
+</script>
+</body>
+</html>
