@@ -165,6 +165,10 @@
   .menu-tabs .tab-btn.active{color:var(--blue)}
   .menu-list{display:flex;flex-direction:column;gap:10px}
   .menu-card{background:#fff;border:.5px solid var(--gray-border);border-radius:var(--r);box-shadow:var(--shadow);padding:12px;display:flex;align-items:center;gap:12px}
+  .menu-card-click{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+  .menu-card-click.clickable{cursor:pointer}
+  .menu-card-click.clickable:active{opacity:.75}
+  .menu-card-edit-hint{background:var(--blue-light)!important;color:var(--blue-dark)!important}
   .menu-card.unavailable{opacity:.55}
   .menu-card-thumb{width:64px;height:64px;flex:none;border-radius:var(--r-sm);background:var(--blue-light);display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden}
   .menu-card-info{flex:1;min-width:0}
@@ -710,6 +714,7 @@ let bellMuted = false;
 let modalProduct = null; // المنتج اللي في المودال
 let modalSelectedUnit = '';
 let modalQtyVal = 1;
+let modalEditIndex = -1; // -1 = إضافة منتج جديد للسلة، أي رقم تاني = تعديل عنصر موجود بالفعل في السلة
 let editingProdKey = null;
 let editingClientKey = null;
 let editingCashierKey = null;
@@ -999,19 +1004,24 @@ function renderCustomerMenu(){
   }
   prods.forEach(([k,p])=>{
     const avail=p.available!==false;
-    const unit=(p.units&&p.units[0])||'';
+    const needsDetail=(p.units&&p.units.length>1)||p.allowPhoto;
     const cartItem=cart.find(ci=>ci.prodKey===k);
+    const unit=cartItem?cartItem.unit:((p.units&&p.units[0])||'');
     const qty=cartItem?cartItem.qty:0;
+    const clickAttr=(avail&&needsDetail)?` onclick="openProductDetail('${k}')"`:'';
     html+=`<div class="menu-card${avail?'':' unavailable'}">
-      <div class="menu-card-thumb">${p.emoji||'📦'}</div>
-      <div class="menu-card-info">
-        <div class="menu-card-name">${p.name}</div>
-        ${p.desc?`<div class="menu-card-desc">${p.desc}</div>`:''}
-        <div class="menu-card-bottom">
-          ${(adminSettings.showPrices&&p.price)?`<span class="menu-card-price">${p.price} جنيه</span>`:''}
-          ${unit?`<span class="menu-card-unitbadge">${unit}</span>`:''}
-          ${p.allowPhoto?`<span class="menu-card-unitbadge">📷 يقبل صورة</span>`:''}
-          ${!avail?`<span class="menu-card-unavail-badge">غير متاح حاليًا</span>`:''}
+      <div class="menu-card-click${(avail&&needsDetail)?' clickable':''}"${clickAttr}>
+        <div class="menu-card-thumb">${p.emoji||'📦'}</div>
+        <div class="menu-card-info">
+          <div class="menu-card-name">${p.name}</div>
+          ${p.desc?`<div class="menu-card-desc">${p.desc}</div>`:''}
+          <div class="menu-card-bottom">
+            ${(adminSettings.showPrices&&p.price)?`<span class="menu-card-price">${p.price} جنيه</span>`:''}
+            ${unit?`<span class="menu-card-unitbadge">${unit}</span>`:''}
+            ${p.allowPhoto?`<span class="menu-card-unitbadge">📷 يقبل صورة</span>`:''}
+            ${(avail&&needsDetail&&cartItem)?`<span class="menu-card-unitbadge menu-card-edit-hint">✏️ اضغط للتعديل</span>`:''}
+            ${!avail?`<span class="menu-card-unavail-badge">غير متاح حاليًا</span>`:''}
+          </div>
         </div>
       </div>
       <div class="menu-qty-ctrl">
@@ -1075,21 +1085,33 @@ function setMenuQtyDirect(prodKey, rawValue){
 const MAX_PHOTO_MB=4;
 const MAX_PHOTOS_PER_ITEM=5;
 let modalPhotos=[]; // [{data:'data:image/...;base64,...'}]
-function openAddProduct(prodKey, initialQty){
+function openAddProduct(prodKey, initialQty, editIdx){
   const p=products[prodKey];
+  const existing=(editIdx!=null&&editIdx>=0)?cart[editIdx]:null;
   modalProduct={key:prodKey,...p};
-  modalQtyVal=(initialQty&&initialQty>0)?initialQty:1; modalSelectedUnit=(p.units&&p.units.length)?p.units[0]:'';
-  modalPhotos=[];
-  $('modal-product-name').textContent=p.name;
+  modalEditIndex=(editIdx!=null&&editIdx>=0)?editIdx:-1;
+  modalQtyVal=existing?existing.qty:((initialQty&&initialQty>0)?initialQty:1);
+  modalSelectedUnit=existing?existing.unit:((p.units&&p.units.length)?p.units[0]:'');
+  modalPhotos=(existing&&existing.photos)?existing.photos.slice():[];
+  $('modal-product-name').textContent=p.name+(existing?' (تعديل)':'');
   // units
   const uel=$('modal-units');
   uel.innerHTML=(p.units||[]).map(u=>`<button class="unit-btn${u===modalSelectedUnit?' selected':''}" onclick="selectUnit('${u}',this)">${u}</button>`).join('');
   $('modal-qty').value=modalQtyVal;
-  $('modal-note').value='';
-  $('modal-photos-preview').innerHTML='';
+  $('modal-note').value=existing?(existing.note||''):'';
+  renderModalPhotos();
   $('modal-photo-input').value='';
   $('modal-photo-group').style.display=p.allowPhoto?'block':'none';
   openModal('modal-add-product');
+}
+// بيتنادى لما العميل يضغط على المنتج نفسه (مش زرار +/-) عشان يراجع أو يعدل اختياره (الوحدة غالبًا)
+function openProductDetail(prodKey){
+  const p=products[prodKey];
+  if(!p) return;
+  const needsDetail=(p.units&&p.units.length>1)||p.allowPhoto;
+  if(!needsDetail) return; // مفيش حاجة تانية تتعدل غير الكمية، وهي أصلاً معدّلة مباشرة من الكارت
+  const idx=cart.findIndex(ci=>ci.prodKey===prodKey);
+  openAddProduct(prodKey, null, idx);
 }
 function selectUnit(u, el){
   modalSelectedUnit=u;
@@ -1138,9 +1160,15 @@ function addToCart(){
     allowPhoto: modalProduct.allowPhoto,
     emoji: modalProduct.emoji
   };
-  cart.push(item);
+  if(modalEditIndex>=0 && cart[modalEditIndex]){
+    cart[modalEditIndex]=item;
+    toast('✅ اتعدّل: '+item.name);
+  } else {
+    cart.push(item);
+    toast('✅ أُضيف: '+item.name);
+  }
+  modalEditIndex=-1;
   closeModal('modal-add-product');
-  toast('✅ أُضيف: '+item.name);
   updateCartDot();
   renderCustContent();
 }
