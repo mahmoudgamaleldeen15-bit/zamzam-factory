@@ -77,6 +77,15 @@
 
   /* ===== CARDS ===== */
   .card{background:#fff;border-radius:var(--r);border:.5px solid var(--gray-border);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)}
+  .card.order-glow{border:2px solid var(--red);animation:orderGlow 1.4s ease-in-out infinite}
+  @keyframes orderGlow{
+    0%,100%{box-shadow:0 0 0 0 rgba(226,75,74,.55)}
+    50%{box-shadow:0 0 20px 5px rgba(226,75,74,.65)}
+  }
+  .card.order-received{border-right:4px solid var(--orange);opacity:.92}
+  .received-tag{display:flex;align-items:center;gap:6px;background:var(--green-light);color:var(--green);font-size:11.5px;font-weight:700;border-radius:var(--r-sm);padding:7px 10px;margin-top:8px}
+  @keyframes badgePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+  .tab-count.pulse{animation:badgePulse 1.2s ease-in-out infinite}
   .card-head{padding:11px 13px;display:flex;justify-content:space-between;align-items:flex-start}
   .card-body{padding:8px 13px 11px;border-top:.5px solid var(--gray-border)}
   .card-footer{padding:8px 13px;border-top:.5px solid var(--gray-border);display:flex;gap:8px}
@@ -142,6 +151,9 @@
   .qty-btn:active{background:var(--blue-light)}
   .qty-btn:disabled{border-color:var(--gray-border);color:var(--text-muted);cursor:not-allowed}
   .qty-num{font-size:15px;font-weight:700;min-width:24px;text-align:center}
+  .qty-num-input{font-size:15px;font-weight:700;text-align:center;width:36px;border:1.5px solid var(--gray-border);border-radius:6px;padding:3px 2px;font-family:inherit;color:var(--text);background:#fff;-moz-appearance:textfield}
+  .qty-num-input:focus{border-color:var(--blue);outline:none}
+  .qty-num-input::-webkit-inner-spin-button,.qty-num-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 
   /* ===== PUBLIC MENU (customer, no login) ===== */
   .store-header{text-align:center;padding:18px 16px 12px;background:#fff;border-bottom:.5px solid var(--gray-border);cursor:pointer;user-select:none;-webkit-user-select:none;flex-shrink:0}
@@ -149,12 +161,14 @@
   .store-sub{font-size:11px;color:var(--text-muted);margin-top:3px}
   .store-footer{text-align:center;padding:7px;font-size:10.5px;color:var(--gray-border);cursor:pointer;user-select:none;-webkit-user-select:none;flex-shrink:0;background:#fff}
   .menu-tabs{margin-bottom:12px}
+  .menu-tabs .tab-btn{font-weight:700;font-size:13px;color:var(--text-sub)}
+  .menu-tabs .tab-btn.active{color:var(--blue)}
   .menu-list{display:flex;flex-direction:column;gap:10px}
   .menu-card{background:#fff;border:.5px solid var(--gray-border);border-radius:var(--r);box-shadow:var(--shadow);padding:12px;display:flex;align-items:center;gap:12px}
   .menu-card.unavailable{opacity:.55}
   .menu-card-thumb{width:64px;height:64px;flex:none;border-radius:var(--r-sm);background:var(--blue-light);display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden}
   .menu-card-info{flex:1;min-width:0}
-  .menu-card-name{font-size:13.5px;font-weight:700;color:var(--text)}
+  .menu-card-name{font-size:14.5px;font-weight:700;color:var(--text)}
   .menu-card-desc{font-size:11px;color:var(--text-sub);margin-top:3px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .menu-card-bottom{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
   .menu-card-price{font-size:13px;font-weight:700;color:var(--text)}
@@ -456,6 +470,7 @@
     <button class="tab-btn" onclick="adminTab('clients')" id="atab-clients">👥 العملاء</button>
     <button class="tab-btn" onclick="adminTab('cashiers')" id="atab-cashiers">🧾 المحاسبين</button>
     <button class="tab-btn" onclick="adminTab('orders')" id="atab-orders">📋 الطلبات</button>
+    <button class="tab-btn" onclick="adminTab('archive')" id="atab-archive">🗄️ الأرشيف</button>
     <button class="tab-btn" onclick="adminTab('audit')" id="atab-audit">📝 Audit</button>
     <button class="tab-btn" onclick="adminTab('settings')" id="atab-settings">⚙️ الإعدادات</button>
   </div>
@@ -478,7 +493,7 @@
       <label class="form-label">الكمية</label>
       <div style="display:flex;align-items:center;gap:14px;margin-top:6px">
         <button class="qty-btn" onclick="modalQty(-1)" style="width:38px;height:38px">−</button>
-        <span id="modal-qty" style="font-size:22px;font-weight:700;min-width:32px;text-align:center">1</span>
+        <input id="modal-qty" type="number" inputmode="numeric" min="1" value="1" onclick="this.select()" onchange="modalQtySet(this.value)" style="font-size:20px;font-weight:700;width:48px;text-align:center;border:1.5px solid var(--gray-border);border-radius:8px;padding:5px 2px;font-family:inherit">
         <button class="qty-btn" onclick="modalQty(1)" style="width:38px;height:38px">+</button>
       </div>
     </div>
@@ -779,7 +794,13 @@ function unlockAudio(){
     if(window._bellCtx.state==='suspended') window._bellCtx.resume();
   }catch(e){}
 }
+let _cashierTapCount=0, _cashierTapTimer=null;
 function cashierEntry(){
+  _cashierTapCount++;
+  clearTimeout(_cashierTapTimer);
+  _cashierTapTimer=setTimeout(()=>_cashierTapCount=0,2000);
+  if(_cashierTapCount<5) return;
+  _cashierTapCount=0;
   unlockAudio();
   if(currentRole==='cashier'&&currentUser){ startCashier(); return; }
   openModal('modal-cashier-login');
@@ -995,7 +1016,9 @@ function renderCustomerMenu(){
       </div>
       <div class="menu-qty-ctrl">
         <button class="qty-btn" onclick="menuQty('${k}',1)" ${avail?'':'disabled'}>+</button>
-        <span class="qty-num">${qty}</span>
+        <input class="qty-num-input" type="number" inputmode="numeric" min="0" value="${qty}" ${avail?'':'disabled'}
+          onclick="this.select()"
+          onchange="setMenuQtyDirect('${k}', this.value)">
         <button class="qty-btn" onclick="menuQty('${k}',-1)" ${(avail&&qty>0)?'':'disabled'}>−</button>
       </div>
     </div>`;
@@ -1012,7 +1035,7 @@ function setMenuCat(k){
   menuActiveCat=k;
   renderCustContent();
 }
-// المنتجات اللي وحدة واحدة وبدون صورة: تعديل الكمية مباشر على الكارت
+// المنتجات اللي وحدة واحدة وبدون صورة: تعديل الكمية مباشر على الكارت (بالـ +/- أو بالكتابة المباشرة)
 // المنتجات اللي فيها أكتر من وحدة أو بتقبل صورة: أول إضافة بتفتح المودال لتحديد التفاصيل
 function menuQty(prodKey, delta){
   const p=products[prodKey];
@@ -1030,19 +1053,38 @@ function menuQty(prodKey, delta){
   updateCartDot();
   renderCustContent();
 }
+// نفس منطق menuQty بس بيقبل رقم مكتوب مباشرة بدل +/-
+function setMenuQtyDirect(prodKey, rawValue){
+  const p=products[prodKey];
+  if(!p) return;
+  let val=parseInt(rawValue,10);
+  if(isNaN(val)||val<0) val=0;
+  const idx=cart.findIndex(ci=>ci.prodKey===prodKey);
+  if(idx===-1){
+    if(val<=0){ renderCustContent(); return; }
+    const needsDetail=(p.units&&p.units.length>1)||p.allowPhoto;
+    if(needsDetail){ openAddProduct(prodKey, val); return; }
+    cart.push({prodKey, name:p.name, unit:(p.units&&p.units[0])||'', qty:val, note:'', emoji:p.emoji||'', allowPhoto:p.allowPhoto});
+  } else {
+    if(val<=0){ cart.splice(idx,1); }
+    else { cart[idx].qty=val; }
+  }
+  updateCartDot();
+  renderCustContent();
+}
 const MAX_PHOTO_MB=4;
 const MAX_PHOTOS_PER_ITEM=5;
 let modalPhotos=[]; // [{data:'data:image/...;base64,...'}]
-function openAddProduct(prodKey){
+function openAddProduct(prodKey, initialQty){
   const p=products[prodKey];
   modalProduct={key:prodKey,...p};
-  modalQtyVal=1; modalSelectedUnit=(p.units&&p.units.length)?p.units[0]:'';
+  modalQtyVal=(initialQty&&initialQty>0)?initialQty:1; modalSelectedUnit=(p.units&&p.units.length)?p.units[0]:'';
   modalPhotos=[];
   $('modal-product-name').textContent=p.name;
   // units
   const uel=$('modal-units');
   uel.innerHTML=(p.units||[]).map(u=>`<button class="unit-btn${u===modalSelectedUnit?' selected':''}" onclick="selectUnit('${u}',this)">${u}</button>`).join('');
-  $('modal-qty').textContent=1;
+  $('modal-qty').value=modalQtyVal;
   $('modal-note').value='';
   $('modal-photos-preview').innerHTML='';
   $('modal-photo-input').value='';
@@ -1056,7 +1098,13 @@ function selectUnit(u, el){
 }
 function modalQty(d){
   modalQtyVal=Math.max(1, modalQtyVal+d);
-  $('modal-qty').textContent=modalQtyVal;
+  $('modal-qty').value=modalQtyVal;
+}
+function modalQtySet(v){
+  let val=parseInt(v,10);
+  if(isNaN(val)||val<1) val=1;
+  modalQtyVal=val;
+  $('modal-qty').value=modalQtyVal;
 }
 function renderModalPhotos(){
   const el=$('modal-photos-preview');
@@ -1274,8 +1322,9 @@ function listenOrders(){
 }
 function checkNewOrders(){
   if(currentRole!=='cashier') return;
-  const newOnes=Object.values(orders).filter(o=>o.status==='new'||o.hasNewAddition);
+  const newOnes=Object.values(orders).filter(o=>!o.archived&&(o.status==='new'||o.hasNewAddition));
   $('new-count-badge').textContent=newOnes.length;
+  $('new-count-badge').classList.toggle('pulse', newOnes.length>0);
   if(newOnes.length&&!bellMuted) playBell();
 }
 function playBell(){
@@ -1318,8 +1367,8 @@ function refreshCashierTab(){
   else if(cashierCurrentTab==='excel') el.innerHTML=renderCashierExcel();
 }
 function renderCashierNew(){
-  const newOrders=Object.values(orders).filter(o=>o.status==='new').sort((a,b)=>a.ts-b.ts);
-  const withAdditions=Object.values(orders).filter(o=>o.status!=='new'&&o.hasNewAddition).sort((a,b)=>a.lastAdditionTs-b.lastAdditionTs);
+  const newOrders=Object.values(orders).filter(o=>!o.archived&&o.status==='new').sort((a,b)=>a.ts-b.ts);
+  const withAdditions=Object.values(orders).filter(o=>!o.archived&&o.status!=='new'&&o.hasNewAddition).sort((a,b)=>a.lastAdditionTs-b.lastAdditionTs);
   let html='';
   if(newOrders.length||withAdditions.length){
     html+=`<div class="alert-banner">
@@ -1342,7 +1391,7 @@ function renderCashierNew(){
 function cashierOrderCard(o, type){
   const adds=o.additions?Object.values(o.additions).sort((a,b)=>a.ts-b.ts):[];
   const addHtml=adds.map((a,i)=>`<div class="addition-block"><div class="addition-label">⚠️ [إضافة رقم ${i+1}] — ${fmtTime(a.ts)}</div><div class="addition-items" style="font-size:11px;color:var(--text-sub)">${(a.items||[]).map(it=>`${it.name} × ${it.qty} ${it.unit}${it.photoCount?' 📷×'+it.photoCount:''}`).join(' · ')}</div></div>`).join('');
-  return `<div class="card">
+  return `<div class="card order-glow">
     <div class="card-head">
       <div><div class="client-name">${o.clientName}</div><div class="order-meta">#${o.key.slice(-4).toUpperCase()} · ${fmtTime(o.ts)}</div></div>
       ${type==='addition'?`<span class="badge badge-purple">🟠 إضافة جديدة</span>`:`<span class="badge badge-new"><span class="badge-dot" style="background:var(--red)"></span>جديد</span>`}
@@ -1361,19 +1410,20 @@ function cashierOrderCard(o, type){
   </div>`;
 }
 function renderCashierProg(){
-  const progOrders=Object.values(orders).filter(o=>o.status==='received').sort((a,b)=>a.ts-b.ts);
+  const progOrders=Object.values(orders).filter(o=>!o.archived&&o.status==='received').sort((a,b)=>a.ts-b.ts);
   if(!progOrders.length) return `<div class="empty-state"><div class="empty-state-icon">🟡</div><p>مفيش طلبات جاري تجهيزها</p></div>`;
   return progOrders.map(o=>{
     const adds=o.additions?Object.values(o.additions).sort((a,b)=>a.ts-b.ts):[];
     const addHtml=adds.map((a,i)=>`<div class="addition-block"><div class="addition-label">⚠️ [إضافة رقم ${i+1}] — ${fmtTime(a.ts)}</div><div style="font-size:11px;color:var(--text-sub)">${(a.items||[]).map(it=>`${it.name} × ${it.qty} ${it.unit}${it.photoCount?' 📷×'+it.photoCount:''}`).join(' · ')}</div></div>`).join('');
-    return `<div class="card">
+    return `<div class="card order-received">
       <div class="card-head">
-        <div><div class="client-name">${o.clientName}</div><div class="order-meta">#${o.key.slice(-4).toUpperCase()} · استلمه ${o.receivedBy||'—'} ${fmtTime(o.receivedAt)}</div></div>
+        <div><div class="client-name">${o.clientName}</div><div class="order-meta">#${o.key.slice(-4).toUpperCase()} · ${fmtTime(o.ts)}</div></div>
         <span class="badge badge-prog"><span class="badge-dot" style="background:var(--orange)"></span>جاري</span>
       </div>
       <div class="card-body">
         <div class="order-items-text">${(o.items||[]).map(i=>`${i.emoji||''} ${i.name} — ${i.unit} × ${i.qty}${i.photoCount?' 📷×'+i.photoCount:''}`).join('<br>')}</div>
         ${addHtml}
+        <div class="received-tag">✅ تم استلام الأوردر من قبل المحاسب: ${o.receivedBy||'—'} — ${fmtTime(o.receivedAt)}</div>
         ${orderHasPhotos(o)?`<a href="resume.html?id=${o.key}" target="_blank" class="btn btn-outline btn-full" style="height:34px;font-size:11.5px;margin-top:8px;text-decoration:none">📷 عرض/تحميل الصور المرفقة</a>`:''}
       </div>
       <div class="card-footer">
@@ -1461,7 +1511,7 @@ function viewOrderDetail(key){
     (a.items||[]).forEach(it=>{ html+=`<div style="font-size:11px;color:var(--text-sub);padding:2px 0">${it.name} × ${it.qty} ${it.unit}${it.photoCount?' 📷×'+it.photoCount:''}</div>`; });
     html+=`</div>`;
   });
-  if(o.receivedBy) html+=`<div style="font-size:11px;color:var(--text-muted);margin-top:8px">استلمه: ${o.receivedBy} — ${fmtTime(o.receivedAt)}</div>`;
+  if(o.receivedBy) html+=`<div class="received-tag" style="margin-top:8px">✅ تم استلام الأوردر من قبل المحاسب: ${o.receivedBy} — ${fmtTime(o.receivedAt)}</div>`;
   if(orderHasPhotos(o)) html+=`<a href="resume.html?id=${key}" target="_blank" class="btn btn-outline btn-full" style="height:40px;margin-top:10px;text-decoration:none">📷 عرض/تحميل الصور المرفقة</a>`;
   html+=`<div style="display:flex;gap:8px;margin-top:14px">
     <button class="btn btn-blue" style="flex:1;height:42px" onclick="printOrder('${key}');closeModal('modal-order-detail')">🖨️ طباعة الطلب</button>
@@ -1545,7 +1595,7 @@ function printOrder(key){
     </div>`).join('')}
     ${photoLink?`<div class="photo-note">📷 الطلب فيه صور مرفقة — لعرضها وتحميلها: ${photoLink}</div>`:''}
     <div class="footer">
-      ${o.receivedBy?`استلمه: ${o.receivedBy} — ${fmtTime(o.receivedAt)}<br>`:''}
+      ${o.receivedBy?`تم استلام الأوردر من قبل المحاسب: ${o.receivedBy} — ${fmtTime(o.receivedAt)}<br>`:''}
       طُبع بواسطة: ${currentUser?currentUser.name:''} — ${fmtDateTime(Date.now())}
     </div>
   </div>
@@ -1617,7 +1667,7 @@ async function loadCashiers(){
 }
 function adminTab(tab){
   adminCurrentTab=tab;
-  ['dash','products','categories','clients','cashiers','orders','audit','settings'].forEach(t=>{
+  ['dash','products','categories','clients','cashiers','orders','archive','audit','settings'].forEach(t=>{
     const el=$('atab-'+t); if(el) el.classList.toggle('active',t===tab);
   });
   refreshAdminTab();
@@ -1630,6 +1680,7 @@ function refreshAdminTab(){
   else if(adminCurrentTab==='clients') el.innerHTML=renderAdminClients();
   else if(adminCurrentTab==='cashiers') el.innerHTML=renderAdminCashiers();
   else if(adminCurrentTab==='orders') el.innerHTML=renderAdminOrders();
+  else if(adminCurrentTab==='archive') el.innerHTML=renderAdminArchive();
   else if(adminCurrentTab==='audit') el.innerHTML=renderAdminAudit();
   else if(adminCurrentTab==='settings') el.innerHTML=renderAdminSettings();
 }
@@ -1896,20 +1947,79 @@ async function saveCashier(){
   refreshAdminTab();
 }
 function renderAdminOrders(){
-  const allOrders=Object.values(orders).sort((a,b)=>b.ts-a.ts);
-  const today=new Date(); today.setHours(0,0,0,0);
-  let html=`<div class="section-hdr"><span class="section-title">كل الطلبات</span></div>
+  const allOrders=Object.values(orders).filter(o=>!o.archived).sort((a,b)=>b.ts-a.ts);
+  let html=`<div class="section-hdr"><span class="section-title">كل الطلبات (${allOrders.length})</span></div>
   <div class="table-wrap"><table class="data-table">
   <thead><tr><th>#</th><th>العميل</th><th>الوقت</th><th>الحالة</th><th></th></tr></thead><tbody>`;
   allOrders.slice(0,50).forEach(o=>{
     const st=o.status||'new';
     const stLabel={new:'🔴 جديد',received:'🟡 جاري',ready:'🟢 جاهز'}[st]||st;
     html+=`<tr><td>#${o.key.slice(-4).toUpperCase()}</td><td>${o.clientName}</td><td style="font-size:10px">${fmtTime(o.ts)}</td><td style="font-size:11px;white-space:nowrap">${stLabel}</td>
-    <td><button style="background:none;border:none;color:var(--blue);font-size:11px;cursor:pointer;white-space:nowrap" onclick="viewOrderDetail('${o.key}')">عرض</button></td></tr>`;
+    <td style="white-space:nowrap">
+      <button style="background:none;border:none;color:var(--blue);font-size:11px;cursor:pointer" onclick="viewOrderDetail('${o.key}')">عرض</button>
+      <button style="background:none;border:none;color:var(--orange);font-size:11px;cursor:pointer;margin-right:8px" onclick="archiveOrder('${o.key}')">🗄️ أرشفة</button>
+      <button style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-right:8px" onclick="deleteOrderPermanently('${o.key}')">🗑️ حذف</button>
+    </td></tr>`;
   });
   html+=`</tbody></table></div>`;
   if(allOrders.length>50) html+=`<div style="text-align:center;font-size:12px;color:var(--text-muted);padding:8px">عرض آخر 50 طلب فقط</div>`;
   return html;
+}
+function renderAdminArchive(){
+  const archived=Object.values(orders).filter(o=>o.archived).sort((a,b)=>(b.archivedAt||b.ts)-(a.archivedAt||a.ts));
+  let html=`<div class="section-hdr"><span class="section-title">الطلبات المؤرشفة (${archived.length})</span></div>`;
+  html+=`<div class="card" style="padding:12px;margin-bottom:12px">
+    <button class="btn btn-green btn-full" style="height:42px" onclick="exportExcelArchived()">📊 تصدير الأرشيف Excel</button>
+  </div>`;
+  if(!archived.length){ html+=`<div class="empty-state"><div class="empty-state-icon">🗄️</div><p>مفيش طلبات مؤرشفة حاليًا</p></div>`; return html; }
+  html+=`<div class="table-wrap"><table class="data-table">
+  <thead><tr><th>#</th><th>العميل</th><th>تاريخ الأرشفة</th><th></th></tr></thead><tbody>`;
+  archived.forEach(o=>{
+    html+=`<tr><td>#${o.key.slice(-4).toUpperCase()}</td><td>${o.clientName}</td><td style="font-size:10px">${fmtDateTime(o.archivedAt||o.ts)}</td>
+    <td style="white-space:nowrap">
+      <button style="background:none;border:none;color:var(--blue);font-size:11px;cursor:pointer" onclick="viewOrderDetail('${o.key}')">عرض</button>
+      <button style="background:none;border:none;color:var(--green);font-size:11px;cursor:pointer;margin-right:8px" onclick="unarchiveOrder('${o.key}')">↩️ استعادة</button>
+      <button style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-right:8px" onclick="deleteOrderPermanently('${o.key}')">🗑️ حذف نهائي</button>
+    </td></tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  return html;
+}
+async function archiveOrder(key){
+  if(!confirm('أرشفة هذا الطلب؟ هيتشال من قائمة الطلبات وتقدر تلاقيه وترجعله في أي وقت من تاب "الأرشيف"')) return;
+  await db.ref('factory/orders/'+key).update({archived:true, archivedAt:Date.now(), archivedBy:currentUser.name});
+  addAudit('أرشفة طلب','#'+key.slice(-4).toUpperCase()+' — '+currentUser.name);
+  toast('🗄️ اتأرشف الطلب');
+  refreshAdminTab();
+}
+async function unarchiveOrder(key){
+  await db.ref('factory/orders/'+key).update({archived:false});
+  addAudit('استعادة طلب من الأرشيف','#'+key.slice(-4).toUpperCase()+' — '+currentUser.name);
+  toast('↩️ اتستعاد الطلب لقائمة الطلبات');
+  refreshAdminTab();
+}
+async function deleteOrderPermanently(key){
+  if(!confirm('⚠️ حذف نهائي! الطلب ده (وأي صور مرفقة بيه) هيتشال خالص ومش هينفع ترجّعه تاني. متأكد؟')) return;
+  await db.ref('factory/orders/'+key).remove();
+  await db.ref('factory/orderPhotos/'+key).remove();
+  addAudit('حذف طلب نهائي','#'+key.slice(-4).toUpperCase()+' — '+currentUser.name);
+  toast('🗑️ اتحذف الطلب نهائيًا');
+  refreshAdminTab();
+}
+async function exportExcelArchived(){
+  const filtered=Object.values(orders).filter(o=>o.archived);
+  if(!filtered.length){ toast('مفيش طلبات مؤرشفة'); return; }
+  const rows=[['رقم الطلب','العميل','المنتج','الوحدة','الكمية','ملاحظة','التاريخ','الوقت','المحاسب','تاريخ الأرشفة']];
+  filtered.forEach(o=>{
+    (o.items||[]).forEach(i=>{
+      rows.push([o.key.slice(-4).toUpperCase(),o.clientName,i.name,i.unit,i.qty,i.note||'',fmtDate(o.ts),fmtTime(o.ts),o.receivedBy||'—',fmtDateTime(o.archivedAt||o.ts)]);
+    });
+  });
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'الأرشيف');
+  XLSX.writeFile(wb,'zamzam_archive_'+Date.now()+'.xlsx');
+  addAudit('تصدير أرشيف Excel',currentUser.name);
 }
 async function renderAdminAudit(){
   const snap=await db.ref('factory/audit').limitToLast(50).once('value');
