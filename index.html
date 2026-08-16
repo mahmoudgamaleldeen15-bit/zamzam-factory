@@ -214,6 +214,8 @@
   .order-hist-card.prog-order{border-right-color:var(--orange)}
   .order-hist-card.ready-order{border-right-color:var(--green)}
   .add-more-btn{margin-top:8px;display:flex;align-items:center;gap:6px;background:var(--blue-light);border:1px solid var(--blue);border-radius:var(--r-sm);padding:7px 10px;cursor:pointer;font-size:11px;color:var(--blue-dark);font-weight:600;width:100%;font-family:inherit}
+  .addto-banner{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--orange-light);border:1.5px solid var(--orange);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:14px;font-size:12px;font-weight:700;color:#a05a06}
+  .addto-banner button{background:#fff;border:1px solid var(--orange);color:#a05a06;font-size:11px;font-weight:700;border-radius:var(--r-sm);padding:6px 10px;cursor:pointer;font-family:inherit;white-space:nowrap}
 
   /* ===== ADMIN STATS ===== */
   .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
@@ -1038,8 +1040,15 @@ async function renderCustContent(){
 }
 // المنيو العامة: كل الأقسام كـ تابات فوق + قائمة منتجات بستيبر كمية على كل كارت
 function renderCustomerMenu(){
+  let html='';
+  if(cartOrderId){
+    html+=`<div class="addto-banner">
+      <span>🔔 بتضيف منتجات على الطلب #${cartOrderId.slice(-4).toUpperCase()} — مش طلب جديد</span>
+      <button onclick="cancelAddToOrder()">❌ إلغاء وابدأ طلب جديد</button>
+    </div>`;
+  }
   const cats=Object.entries(categories).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
-  let html=`<div class="tabs-bar menu-tabs">`;
+  html+=`<div class="tabs-bar menu-tabs">`;
   html+=`<button class="tab-btn${menuActiveCat==='all'?' active':''}" onclick="setMenuCat('all')">✨ الكل</button>`;
   cats.forEach(([k,c])=>{
     html+=`<button class="tab-btn${menuActiveCat===k?' active':''}" onclick="setMenuCat('${k}')">${c.emoji||''} ${c.name}</button>`;
@@ -1385,7 +1394,7 @@ async function sendOrder(){
     };
     await ref.set(orderData);
     addAudit('طلب جديد','#'+ref.key.slice(-4)+' — '+currentUser.name);
-    toast('✅ تم إرسال الطلب!');
+    toast('✅ تم إرسال طلبك رقم #'+ref.key.slice(-4).toUpperCase()+' — دور عليه في تاب طلباتي');
     if(whatsappReady()){
       openWhatsAppOrder(ref.key, itemsWithPhotos, {isAddition:false, clientName:currentUser.name, customerId:currentUser.customerId||currentUser.id, ts:orderData.ts});
     }
@@ -1395,7 +1404,11 @@ async function sendOrder(){
   custNav('orders');
 }
 async function renderMyOrders(){
-  const snap=await db.ref('factory/orders').orderByChild('clientKey').equalTo(currentUser.key).once('value');
+  let snap=await db.ref('factory/orders').orderByChild('clientKey').equalTo(currentUser.key).once('value');
+  // احتياطي: لو مفيش نتيجة بالمفتاح (مثلاً لو حساب العميل اتعدّل بمفتاح مختلف)، نجرب بكود العميل
+  if(!snap.exists() && currentUser.customerId){
+    snap=await db.ref('factory/orders').orderByChild('customerId').equalTo(currentUser.customerId).once('value');
+  }
   const myOrders=[];
   snap.forEach(o=>myOrders.unshift({key:o.key,...o.val()}));
   const statusMap={new:'جديد 🔴',received:'جاري التجهيز 🟡',ready:'جاهز 🟢'};
@@ -1434,7 +1447,7 @@ async function resendWhatsAppForOrder(orderKey){
   openWhatsAppOrder(orderKey, items, {isAddition:false, clientName:o.clientName, customerId:o.customerId, ts:o.ts});
 }
 function customerIdentityLogout(){
-  currentRole=null; currentUser=null;
+  currentRole=null; currentUser=null; cartOrderId=null; cart=[];
   toast('تم الخروج من الحساب');
   custNav('home');
 }
@@ -1452,6 +1465,13 @@ function addMoreToOrder(ordKey){
   cart=[];
   custNav('home');
   toast('اختار المنتجات اللي هتضيفها');
+}
+function cancelAddToOrder(){
+  cartOrderId=null;
+  cart=[];
+  updateCartDot();
+  renderCustContent();
+  toast('✅ اتلغت — أي منتج تضيفه دلوقتي هيبقى طلب جديد منفصل');
 }
 
 // ============================================================
