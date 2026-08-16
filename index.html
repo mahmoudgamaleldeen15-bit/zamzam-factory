@@ -765,6 +765,39 @@ function orderHasPhotos(o){
   }
   return false;
 }
+// ============================================================
+// WHATSAPP — إرسال تفاصيل الطلب لواتساب الأدمن (اختياري، بيتفعّل من الإعدادات)
+// ============================================================
+function whatsappReady(){
+  return !!(adminSettings.whatsappEnabled && adminSettings.whatsappNumber);
+}
+function buildWhatsAppMessage(orderKey, items, meta){
+  let msg=`🏭 *ZamZam Dessert Factory*\n`;
+  msg+= meta.isAddition ? `➕ *إضافة جديدة على طلب* #${orderKey.slice(-4).toUpperCase()}\n\n` : `📋 *طلب جديد* #${orderKey.slice(-4).toUpperCase()}\n\n`;
+  msg+=`👤 العميل: ${meta.clientName||''}\n`;
+  msg+=`🔑 كود العميل: ${meta.customerId||''}\n`;
+  msg+=`🕐 ${fmtDateTime(meta.ts||Date.now())}\n\n`;
+  msg+=`*المنتجات:*\n`;
+  (items||[]).forEach((i,idx)=>{
+    msg+=`${idx+1}. ${i.name} — ${i.unit} × ${i.qty}`;
+    if(i.note) msg+=` (📝 ${i.note})`;
+    if(i.photoCount) msg+=` [📷×${i.photoCount}]`;
+    msg+=`\n`;
+  });
+  if((items||[]).some(i=>i.photoCount>0)){
+    let link;
+    try{ link=new URL('resume.html?id='+orderKey, location.href).href; }catch(e){ link='resume.html?id='+orderKey; }
+    msg+=`\n📷 لعرض وتحميل الصور المرفقة:\n${link}`;
+  }
+  return msg;
+}
+function openWhatsAppOrder(orderKey, items, meta){
+  if(!whatsappReady()) return false;
+  const msg=buildWhatsAppMessage(orderKey, items, meta);
+  const url='https://wa.me/'+adminSettings.whatsappNumber+'?text='+encodeURIComponent(msg);
+  const w=window.open(url,'_blank');
+  return !!w;
+}
 function addAudit(action, detail=''){
   db.ref('factory/audit').push({
     user: currentUser?.name||'system',
@@ -1246,6 +1279,9 @@ async function sendOrder(){
     await db.ref('factory/orders/'+cartOrderId+'/lastAdditionTs').set(Date.now());
     addAudit('إضافة على طلب','#'+cartOrderId.slice(-4)+' — '+currentUser.name);
     toast('✅ تم إرسال الإضافة!');
+    if(whatsappReady()){
+      openWhatsAppOrder(cartOrderId, itemsWithPhotos, {isAddition:true, clientName:currentUser.name, customerId:currentUser.customerId||currentUser.id, ts:Date.now()});
+    }
   } else {
     const ref=db.ref('factory/orders').push();
     const itemsWithPhotos=[];
@@ -1270,6 +1306,9 @@ async function sendOrder(){
     await ref.set(orderData);
     addAudit('طلب جديد','#'+ref.key.slice(-4)+' — '+currentUser.name);
     toast('✅ تم إرسال الطلب!');
+    if(whatsappReady()){
+      openWhatsAppOrder(ref.key, itemsWithPhotos, {isAddition:false, clientName:currentUser.name, customerId:currentUser.customerId||currentUser.id, ts:orderData.ts});
+    }
   }
   cart=[]; cartOrderId=null;
   updateCartDot();
@@ -1296,11 +1335,23 @@ async function renderMyOrders(){
       </div>
       <div style="font-size:12px;color:var(--text-sub);line-height:1.7">${(o.items||[]).map(i=>`${i.emoji||''} ${i.name} — ${i.unit} × ${i.qty}${i.note?' — 📝 '+i.note:''}${i.photoCount?' — 📷×'+i.photoCount:''}`).join('<br>')}</div>
       ${orderHasPhotos(o)?`<a class="btn btn-outline btn-full" style="height:34px;font-size:11px;margin-top:8px;text-decoration:none" href="resume.html?id=${o.key}" target="_blank">📷 عرض الصور المرفقة</a>`:''}
+      ${whatsappReady()?`<button class="btn btn-outline btn-full" style="height:34px;font-size:11px;margin-top:8px;color:#25D366;border-color:#25D366" onclick="resendWhatsAppForOrder('${o.key}')">📱 إرسال الطلب على واتساب</button>`:''}
       ${renderAdditions(o)}
       ${(st==='new'||st==='received')?`<button class="add-more-btn" onclick="addMoreToOrder('${o.key}')">➕ إضافة منتجات على هذا الطلب</button>`:''}
     </div>`;
   });
   return html;
+}
+async function resendWhatsAppForOrder(orderKey){
+  if(!whatsappReady()){ toast('⚠️ خاصية الواتساب مش مفعّلة حاليًا'); return; }
+  const snap=await db.ref('factory/orders/'+orderKey).once('value');
+  if(!snap.exists()){ toast('الطلب غير موجود'); return; }
+  const o=snap.val();
+  let items=(o.items||[]).slice();
+  if(o.additions){
+    Object.values(o.additions).forEach(a=>{ items=items.concat(a.items||[]); });
+  }
+  openWhatsAppOrder(orderKey, items, {isAddition:false, clientName:o.clientName, customerId:o.customerId, ts:o.ts});
 }
 function customerIdentityLogout(){
   currentRole=null; currentUser=null;
@@ -2070,11 +2121,31 @@ async function renderAdminAudit(){
 }
 function renderAdminSettings(){
   const showPrices=adminSettings.showPrices||false;
+  const waEnabled=adminSettings.whatsappEnabled||false;
+  const waNumber=adminSettings.whatsappNumber||'';
   return `<div class="menu-list" style="margin-top:8px">
     <div class="card" style="padding:0">
       <div class="toggle-row" style="padding:12px 14px">
         <span class="toggle-label">إظهار الأسعار للعملاء</span>
         <div class="toggle-switch ${showPrices?'on':''}" onclick="toggleSetting('showPrices',this)"></div>
+      </div>
+    </div>
+    <div class="card" style="padding:0;margin-top:12px">
+      <div class="toggle-row" style="padding:12px 14px">
+        <span class="toggle-label">📱 استلام الطلبات على واتساب</span>
+        <div class="toggle-switch ${waEnabled?'on':''}" onclick="toggleSetting('whatsappEnabled',this)"></div>
+      </div>
+      <div style="padding:0 14px 14px">
+        <div class="form-group" style="margin-bottom:8px">
+          <label class="form-label">رقم الواتساب (بكود الدولة، أرقام بس من غير + أو صفر البداية)</label>
+          <input class="form-input" type="text" id="whatsapp-number" placeholder="مثال: 201012345678" value="${waNumber}" inputmode="numeric">
+        </div>
+        <button class="btn btn-outline btn-full" style="height:40px" onclick="saveWhatsappNumber()">💾 حفظ الرقم</button>
+        <p style="font-size:10.5px;color:var(--text-muted);margin-top:10px;line-height:1.7">
+          لما تفعّل الخاصية وتحفظ رقم: بعد ما العميل يبعت طلبه، هيتفتحله واتساب تلقائيًا وفيه تفاصيل الطلب كاملة (المنتجات والكميات والملاحظات) + رابط لعرض وتحميل الصور المرفقة لو موجودة — وهو بس يضغط "إرسال" في واتساب. الطلب هيوصلك في النظام هنا (تاب الطلبات) بالظبط زي ما هو دلوقتي برضو.<br>
+          لو المتصفح منع فتح واتساب تلقائي، هيلاقي العميل زرار "📱 إرسال على واتساب" جنب طلبه في تاب "طلباتي" يضغط عليه في أي وقت.<br>
+          لو الخاصية مقفولة أو مفيش رقم محفوظ، الطلب هيتبعت زي النظام الحالي بالظبط من غير واتساب خالص.
+        </p>
       </div>
     </div>
   </div>
@@ -2085,6 +2156,13 @@ function renderAdminSettings(){
   <div style="margin-top:14px">
     <button class="btn btn-ghost btn-full" style="height:44px;color:var(--red)" onclick="backupData()">💾 تنزيل Backup</button>
   </div>`;
+}
+async function saveWhatsappNumber(){
+  let num=$('whatsapp-number').value.trim().replace(/[^0-9]/g,'');
+  if(num && num.length<8){ toast('⚠️ الرقم قصير جدًا — اكتبه بكود الدولة كامل (مثال: 201012345678)'); return; }
+  await db.ref('factory/settings/whatsappNumber').set(num);
+  adminSettings.whatsappNumber=num;
+  toast('✅ اتحفظ رقم الواتساب');
 }
 async function toggleSetting(key, el){
   el.classList.toggle('on');
