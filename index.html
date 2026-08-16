@@ -186,6 +186,8 @@
   .cart-row{display:flex;justify-content:space-between;align-items:center}
   .cart-name{font-size:13px;font-weight:600;color:var(--text)}
   .cart-unit{font-size:11px;color:var(--text-muted);margin-top:1px}
+  .cart-line-total{font-size:12.5px;font-weight:700;color:var(--blue);margin-top:6px}
+  .cart-total-box{display:flex;justify-content:space-between;align-items:center;background:var(--blue);color:#fff;border-radius:var(--r);padding:14px 16px;margin-top:14px;font-size:15px;font-weight:800}
   .qty-ctrl{display:flex;align-items:center;gap:10px}
   .qty-btn{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--blue);background:#fff;color:var(--blue);font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
   .qty-btn:active{background:var(--blue-light)}
@@ -243,6 +245,7 @@
 
   /* ===== ORDER HISTORY ===== */
   .order-hist-card{background:#fff;border-radius:var(--r);border:.5px solid var(--gray-border);border-right:3px solid var(--blue);margin-bottom:10px;padding:11px 13px;box-shadow:var(--shadow)}
+  .order-total-row{display:flex;justify-content:space-between;align-items:center;background:var(--blue-light);color:var(--blue-dark);border-radius:var(--r-sm);padding:8px 12px;margin-top:8px;font-size:13px;font-weight:800}
   .order-hist-card.new-order{border-right-color:var(--red)}
   .order-hist-card.prog-order{border-right-color:var(--orange)}
   .order-hist-card.ready-order{border-right-color:var(--green)}
@@ -630,8 +633,8 @@
       <div id="admin-units-check" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
     </div>
     <div class="form-group">
-      <label class="form-label">السعر (اختياري)</label>
-      <input class="form-input" id="prod-price-input" type="number" placeholder="0" inputmode="decimal">
+      <label class="form-label">السعر لكل وحدة (اختياري)</label>
+      <div id="admin-unit-prices" style="display:flex;flex-direction:column;gap:8px;margin-top:6px"></div>
     </div>
     <div class="toggle-row">
       <span class="toggle-label">السماح بإرفاق صورة (للتورتة)</span>
@@ -826,7 +829,7 @@ let editingClientKey = null;
 let editingCashierKey = null;
 let editingCategoryKey = null;
 let customerLoginIntent = null; // 'checkout' | 'orders' — عشان بعد تسجيل الدخول نعرف نكمل على فين
-const UNITS_ALL = ['كيلو','سيرفيس','صينية','صاج','قطعة','علبة','شنطة','كوب','كرتونة'];
+const UNITS_ALL = ['كيلو','سيرفيس','صينية','صاج','قطعة','علبة','شنطة','كوب','كرتونة','وجبة'];
 
 // ============================================================
 // UTILS
@@ -862,6 +865,12 @@ function nowStr(){ return fmtTime(Date.now()); }
 function hashPin(pin){ return btoa('zz'+pin+'factory'); }
 function genId(){ return Date.now().toString(36)+(Math.random()*36|0).toString(36); }
 // بيتأكد لو الطلب (أو أي إضافة عليه) فيه صور مرفقة
+// بيرجع سعر الوحدة المحددة لمنتج معين (لو الأدمن حدد سعر ليها، غير كده صفر)
+function getUnitPrice(prodKey, unit){
+  const p=products[prodKey];
+  if(!p||!p.unitPrices) return 0;
+  return p.unitPrices[unit]||0;
+}
 function orderHasPhotos(o){
   if(!o) return false;
   if((o.items||[]).some(i=>i.photoCount>0)) return true;
@@ -885,12 +894,15 @@ function buildWhatsAppMessage(orderKey, items, meta){
   msg+=`🔑 كود العميل: ${meta.customerId||''}\n`;
   msg+=`🕐 ${fmtDateTime(meta.ts||Date.now())}\n\n`;
   msg+=`*المنتجات:*\n`;
+  let total=0;
   (items||[]).forEach((i,idx)=>{
     msg+=`${idx+1}. ${i.name} — ${i.unit} × ${i.qty}`;
     if(i.note) msg+=` (📝 ${i.note})`;
     if(i.photoCount) msg+=` [📷×${i.photoCount}]`;
+    if(i.lineTotal){ msg+=` — ${i.lineTotal} جنيه`; total+=i.lineTotal; }
     msg+=`\n`;
   });
+  if(total>0) msg+=`\n💰 *الإجمالي: ${total} جنيه*\n`;
   if((items||[]).some(i=>i.photoCount>0)){
     let link;
     try{ link=new URL('resume.html?id='+orderKey, location.href).href; }catch(e){ link='resume.html?id='+orderKey; }
@@ -1195,7 +1207,7 @@ function renderCustomerMenu(){
           <div class="menu-card-name">${p.name}</div>
           ${p.desc?`<div class="menu-card-desc">${p.desc}</div>`:''}
           <div class="menu-card-bottom">
-            ${(adminSettings.showPrices&&p.price)?`<span class="menu-card-price">${p.price} جنيه</span>`:''}
+            ${(adminSettings.showPrices&&p.unitPrices&&Object.keys(p.unitPrices).length)?Object.entries(p.unitPrices).map(([u,pr])=>`<span class="menu-card-price">${u}: ${pr} جنيه</span>`).join(''):''}
             ${unitBadges}
             ${p.allowPhoto?`<span class="menu-card-unitbadge">📷 يقبل صورة</span>`:''}
             ${!avail?`<span class="menu-card-unavail-badge">غير متاح حاليًا</span>`:''}
@@ -1434,19 +1446,25 @@ function updateCartDot(){
 }
 function renderCart(){
   if(!cart.length) return `<div class="cart-empty"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg><p>السلة فارغة</p><p style="font-size:11px;margin-top:6px">ارجع للرئيسية واختار منتجات</p></div>`;
+  const showP=!!adminSettings.showPrices;
+  let orderTotal=0;
   let html=`<div class="section-hdr"><span class="section-title">مراجعة الطلب</span><span style="font-size:12px;font-weight:600;color:var(--blue)">${cart.length} منتج</span></div>`;
   cart.forEach((item,i)=>{
     const prod=products[item.prodKey];
     const canEditDetail=prod&&((prod.units&&prod.units.length>1)||prod.allowPhoto);
+    const unitPrice=showP?getUnitPrice(item.prodKey,item.unit):0;
+    const lineTotal=unitPrice*item.qty;
+    if(unitPrice>0) orderTotal+=lineTotal;
     html+=`<div class="cart-item">
       <div class="cart-row">
-        <div><div class="cart-name">${item.emoji||'📦'} ${item.name}</div><div class="cart-unit">${item.unit}</div></div>
+        <div><div class="cart-name">${item.emoji||'📦'} ${item.name}</div><div class="cart-unit">${item.unit}${unitPrice>0?` — ${unitPrice} جنيه/${item.unit}`:''}</div></div>
         <div class="qty-ctrl">
           <button class="qty-btn" onclick="changeCartQty(${i},-1)">−</button>
           <span class="qty-num">${item.qty}</span>
           <button class="qty-btn" onclick="changeCartQty(${i},1)">+</button>
         </div>
       </div>
+      ${unitPrice>0?`<div class="cart-line-total">الإجمالي: ${lineTotal} جنيه</div>`:''}
       ${item.note?`<div style="font-size:11px;color:var(--text-muted);margin-top:6px;background:var(--gray-50);padding:5px 8px;border-radius:var(--r-sm)">📝 ${item.note}</div>`:''}
       ${(item.photos&&item.photos.length)?`<div class="photo-thumbs">${item.photos.map(ph=>`<div class="photo-thumb-wrap"><img src="${ph.data}"></div>`).join('')}</div>`:''}
       <div style="display:flex;gap:8px;margin-top:8px">
@@ -1455,6 +1473,9 @@ function renderCart(){
       </div>
     </div>`;
   });
+  if(showP && orderTotal>0){
+    html+=`<div class="cart-total-box"><span>💰 إجمالي الطلب</span><span>${orderTotal} جنيه</span></div>`;
+  }
   html+=`<div class="confirm-box"><p>⚠️ هل أنت متأكد من إرسال الطلب؟</p><span>بعد الإرسال مش هينفع تعدل — بس تقدر تضيف منتجات جديدة</span></div>`;
   html+=`<button class="btn btn-blue btn-full" style="margin-top:12px" onclick="openConfirmSend()">✉️ تأكيد إرسال الطلب</button>`;
   return html;
@@ -1475,13 +1496,26 @@ function openConfirmSend(){
     openModal('modal-customer-login');
     return;
   }
-  $('confirm-order-summary').innerHTML=cart.map(i=>`<div>${i.emoji||''} <b>${i.name}</b> — ${i.unit} × ${i.qty}${i.note?' — 📝 '+i.note:''}${(i.photos&&i.photos.length)?' — 📷 مرفق '+i.photos.length+' صورة':''}</div>`).join('');
+  const showP=!!adminSettings.showPrices;
+  let total=0;
+  const lines=cart.map(i=>{
+    const up=showP?getUnitPrice(i.prodKey,i.unit):0;
+    const lt=up*i.qty;
+    if(up>0) total+=lt;
+    return `<div>${i.emoji||''} <b>${i.name}</b> — ${i.unit} × ${i.qty}${i.note?' — 📝 '+i.note:''}${(i.photos&&i.photos.length)?' — 📷 مرفق '+i.photos.length+' صورة':''}${up>0?` — <b>${lt} جنيه</b>`:''}</div>`;
+  }).join('');
+  const totalHtml=(showP&&total>0)?`<div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:2px solid var(--gray-border);font-weight:800;font-size:15px"><span>الإجمالي</span><span>${total} جنيه</span></div>`:'';
+  $('confirm-order-summary').innerHTML=lines+totalHtml;
   openModal('modal-confirm-send');
 }
 async function sendOrder(){
   closeModal('modal-confirm-send');
   const isAddition = cartOrderId!==null;
-  const baseItems = cart.map(i=>({name:i.name,unit:i.unit,qty:i.qty,note:i.note||'',emoji:i.emoji||''}));
+  const showP=!!adminSettings.showPrices;
+  const baseItems = cart.map(i=>{
+    const unitPrice=showP?getUnitPrice(i.prodKey,i.unit):0;
+    return {name:i.name,unit:i.unit,qty:i.qty,note:i.note||'',emoji:i.emoji||'',unitPrice,lineTotal:unitPrice*i.qty};
+  });
 
   if(isAddition){
     // إضافة على طلب موجود
@@ -1498,7 +1532,8 @@ async function sendOrder(){
       }
       itemsWithPhotos.push({...baseItems[idx],photoCount});
     }
-    await ref.set({items:itemsWithPhotos, ts:Date.now(), additionNum:Date.now()});
+    const additionTotal=itemsWithPhotos.reduce((s,i)=>s+(i.lineTotal||0),0);
+    await ref.set({items:itemsWithPhotos, ts:Date.now(), additionNum:Date.now(), total:additionTotal});
     // notify cashier
     await db.ref('factory/orders/'+cartOrderId+'/hasNewAddition').set(true);
     await db.ref('factory/orders/'+cartOrderId+'/lastAdditionTs').set(Date.now());
@@ -1520,11 +1555,13 @@ async function sendOrder(){
       }
       itemsWithPhotos.push({...baseItems[idx],photoCount});
     }
+    const orderTotal=itemsWithPhotos.reduce((s,i)=>s+(i.lineTotal||0),0);
     const orderData={
       clientKey: currentUser.key,
       clientName: currentUser.name,
       customerId: currentUser.customerId||currentUser.id,
       items: itemsWithPhotos,
+      total: orderTotal,
       ts: Date.now(),
       status: 'new'
     };
@@ -1557,17 +1594,21 @@ async function renderMyOrders(){
   </div>`;
   if(!myOrders.length) return head+`<div class="empty-state"><div class="empty-state-icon">📋</div><p>مفيش طلبات لحد دلوقتي</p></div>`;
   let html=head;
+  const showP=!!adminSettings.showPrices;
   myOrders.forEach(o=>{
     const st=o.status||'new';
+    const addsTotal=o.additions?Object.values(o.additions).reduce((s,a)=>s+(a.total||0),0):0;
+    const grandTotal=(o.total||0)+addsTotal;
     html+=`<div class="order-hist-card ${st==='new'?'new-order':st==='received'?'prog-order':'ready-order'}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div><div style="font-size:13px;font-weight:600">#${o.key.slice(-4).toUpperCase()}</div><div style="font-size:10px;color:var(--text-muted)">${fmtDateTime(o.ts)}</div></div>
         <span class="badge ${badgeMap[st]||'badge-new'}">${statusMap[st]||st}</span>
       </div>
-      <div style="font-size:12px;color:var(--text-sub);line-height:1.7">${(o.items||[]).map(i=>`${i.emoji||''} ${i.name} — ${i.unit} × ${i.qty}${i.note?' — 📝 '+i.note:''}${i.photoCount?' — 📷×'+i.photoCount:''}`).join('<br>')}</div>
+      <div style="font-size:12px;color:var(--text-sub);line-height:1.7">${(o.items||[]).map(i=>`${i.emoji||''} ${i.name} — ${i.unit} × ${i.qty}${i.note?' — 📝 '+i.note:''}${i.photoCount?' — 📷×'+i.photoCount:''}${(showP&&i.lineTotal)?' — <b>'+i.lineTotal+' جنيه</b>':''}`).join('<br>')}</div>
+      ${renderAdditions(o)}
+      ${(showP&&grandTotal>0)?`<div class="order-total-row"><span>💰 إجمالي الطلب</span><span>${grandTotal} جنيه</span></div>`:''}
       ${orderHasPhotos(o)?`<a class="btn btn-outline btn-full" style="height:34px;font-size:11px;margin-top:8px;text-decoration:none" href="resume.html?id=${o.key}" target="_blank">📷 عرض الصور المرفقة</a>`:''}
       ${whatsappReady()?`<button class="btn btn-outline btn-full" style="height:34px;font-size:11px;margin-top:8px;color:#25D366;border-color:#25D366" onclick="resendWhatsAppForOrder('${o.key}')">📱 إرسال الطلب على واتساب</button>`:''}
-      ${renderAdditions(o)}
       ${(st==='new'||st==='received')?`<button class="add-more-btn" onclick="addMoreToOrder('${o.key}')">➕ إضافة منتجات على هذا الطلب</button>`:''}
     </div>`;
   });
@@ -1591,10 +1632,11 @@ function customerIdentityLogout(){
 }
 function renderAdditions(o){
   if(!o.additions) return '';
+  const showP=!!adminSettings.showPrices;
   let html='';
   const adds=Object.values(o.additions).sort((a,b)=>a.ts-b.ts);
   adds.forEach((a,i)=>{
-    html+=`<div class="addition-block"><div class="addition-label">⚠️ [إضافة رقم ${i+1}] — ${fmtTime(a.ts)}</div><div style="font-size:11px;color:var(--text-sub)">${(a.items||[]).map(it=>`${it.name} × ${it.qty} ${it.unit}`).join(' · ')}</div></div>`;
+    html+=`<div class="addition-block"><div class="addition-label">⚠️ [إضافة رقم ${i+1}] — ${fmtTime(a.ts)}</div><div style="font-size:11px;color:var(--text-sub)">${(a.items||[]).map(it=>`${it.name} × ${it.qty} ${it.unit}${(showP&&it.lineTotal)?' — '+it.lineTotal+' جنيه':''}`).join(' · ')}</div>${(showP&&a.total>0)?`<div style="font-size:11px;font-weight:700;color:var(--orange);margin-top:4px">إجمالي الإضافة: ${a.total} جنيه</div>`:''}</div>`;
   });
   return html;
 }
@@ -2208,7 +2250,7 @@ function renderAdminProducts(){
       <div class="card-head">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="font-size:28px">${p.emoji||'📦'}</div>
-          <div><div class="client-name">${p.name}</div><div class="order-meta">${cat.name||'—'} · ${(p.units||[]).join('، ')}</div>${p.price?`<div class="order-meta">💰 ${p.price} جنيه</div>`:''}</div>
+          <div><div class="client-name">${p.name}</div><div class="order-meta">${cat.name||'—'} · ${(p.units||[]).join('، ')}</div>${(p.unitPrices&&Object.keys(p.unitPrices).length)?`<div class="order-meta">💰 ${Object.entries(p.unitPrices).map(([u,pr])=>u+': '+pr+' ج').join(' · ')}</div>`:''}</div>
         </div>
         <div class="toggle-switch ${p.available!==false?'on':''}" onclick="toggleProductAvail('${k}',this)"></div>
       </div>
@@ -2226,13 +2268,13 @@ function openAddProductAdmin(){
   $('edit-prod-key').value='';
   $('prod-name-input').value='';
   $('prod-emoji-input').value='📦';
-  $('prod-price-input').value='';
   $('prod-photo-toggle').className='toggle-switch';
   $('prod-avail-toggle').className='toggle-switch on';
   const catSel=$('prod-cat-input');
   catSel.innerHTML=Object.entries(categories).map(([k,c])=>`<option value="${k}">${c.emoji||''} ${c.name}</option>`).join('');
   const uc=$('admin-units-check');
   uc.innerHTML=UNITS_ALL.map(u=>`<button class="unit-btn" onclick="toggleUnitCheck(this)">${u}</button>`).join('');
+  renderAdminUnitPrices({});
   openModal('modal-add-product-admin');
 }
 function editProduct(key){
@@ -2242,27 +2284,55 @@ function editProduct(key){
   $('edit-prod-key').value=key;
   $('prod-name-input').value=p.name;
   $('prod-emoji-input').value=p.emoji||'📦';
-  $('prod-price-input').value=p.price||'';
   $('prod-photo-toggle').className='toggle-switch'+(p.allowPhoto?' on':'');
   $('prod-avail-toggle').className='toggle-switch'+(p.available!==false?' on':'');
   const catSel=$('prod-cat-input');
   catSel.innerHTML=Object.entries(categories).map(([k,c])=>`<option value="${k}"${k===p.catId?' selected':''}>${c.emoji||''} ${c.name}</option>`).join('');
   const uc=$('admin-units-check');
   uc.innerHTML=UNITS_ALL.map(u=>`<button class="unit-btn${(p.units||[]).includes(u)?' selected':''}" onclick="toggleUnitCheck(this)">${u}</button>`).join('');
+  renderAdminUnitPrices(p.unitPrices||{});
   openModal('modal-add-product-admin');
 }
-function toggleUnitCheck(el){ el.classList.toggle('selected'); }
+function toggleUnitCheck(el){
+  el.classList.toggle('selected');
+  renderAdminUnitPrices();
+}
+// بيرسم خانة سعر مستقلة لكل وحدة متعددة مختارة فعليًا — بيحافظ على القيم المكتوبة لو المستخدم بدّل اختيار الوحدات
+function renderAdminUnitPrices(prices){
+  const selectedUnits=[...$('admin-units-check').querySelectorAll('.unit-btn.selected')].map(b=>b.textContent);
+  const container=$('admin-unit-prices');
+  const existingVals={};
+  container.querySelectorAll('input[data-unit]').forEach(inp=>{ existingVals[inp.dataset.unit]=inp.value; });
+  const srcPrices=prices||existingVals;
+  if(!selectedUnits.length){
+    container.innerHTML=`<p style="font-size:11px;color:var(--text-muted)">اختر وحدة واحدة على الأقل الأول</p>`;
+    return;
+  }
+  container.innerHTML=selectedUnits.map(u=>{
+    const val=existingVals[u]!==undefined?existingVals[u]:(srcPrices[u]!==undefined?srcPrices[u]:'');
+    return `<div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:12.5px;font-weight:700;min-width:60px">${u}</span>
+      <input class="form-input" type="number" inputmode="decimal" placeholder="0" data-unit="${u}" value="${val}" style="flex:1">
+      <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">جنيه</span>
+    </div>`;
+  }).join('');
+}
 async function saveProduct(){
   const name=$('prod-name-input').value.trim();
   if(!name){ toast('أدخل اسم المنتج'); return; }
   const units=[...$('admin-units-check').querySelectorAll('.unit-btn.selected')].map(b=>b.textContent);
   if(!units.length){ toast('اختر وحدة واحدة على الأقل'); return; }
+  const unitPrices={};
+  $('admin-unit-prices').querySelectorAll('input[data-unit]').forEach(inp=>{
+    const v=parseFloat(inp.value);
+    if(!isNaN(v)&&v>0) unitPrices[inp.dataset.unit]=v;
+  });
   const data={
     name,
     catId: $('prod-cat-input').value,
     emoji: $('prod-emoji-input').value||'📦',
     units,
-    price: parseFloat($('prod-price-input').value)||0,
+    unitPrices,
     allowPhoto: $('prod-photo-toggle').classList.contains('on'),
     available: $('prod-avail-toggle').classList.contains('on'),
     order: Date.now()
