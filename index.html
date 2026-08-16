@@ -1404,13 +1404,15 @@ async function sendOrder(){
   custNav('orders');
 }
 async function renderMyOrders(){
-  let snap=await db.ref('factory/orders').orderByChild('clientKey').equalTo(currentUser.key).once('value');
-  // احتياطي: لو مفيش نتيجة بالمفتاح (مثلاً لو حساب العميل اتعدّل بمفتاح مختلف)، نجرب بكود العميل
-  if(!snap.exists() && currentUser.customerId){
-    snap=await db.ref('factory/orders').orderByChild('customerId').equalTo(currentUser.customerId).once('value');
+  // بندمج نتيجتين: بحث بمفتاح الحساب + بحث بكود العميل — عشان لو أي طلب اتسجل بمفتاح مختلف (مثلاً بسبب حساب مكرر بنفس الكود) يفضل يظهر
+  const results={};
+  const byKey=await db.ref('factory/orders').orderByChild('clientKey').equalTo(currentUser.key).once('value');
+  byKey.forEach(o=>{ results[o.key]={key:o.key,...o.val()}; });
+  if(currentUser.customerId){
+    const byCode=await db.ref('factory/orders').orderByChild('customerId').equalTo(currentUser.customerId).once('value');
+    byCode.forEach(o=>{ results[o.key]={key:o.key,...o.val()}; });
   }
-  const myOrders=[];
-  snap.forEach(o=>myOrders.unshift({key:o.key,...o.val()}));
+  const myOrders=Object.values(results).sort((a,b)=>b.ts-a.ts);
   const statusMap={new:'جديد 🔴',received:'جاري التجهيز 🟡',ready:'جاهز 🟢'};
   const badgeMap={new:'badge-new',received:'badge-prog',ready:'badge-ready'};
   let head=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -2080,6 +2082,11 @@ async function saveClient(){
   const name=$('client-name-input').value.trim();
   const id=$('client-id-input').value.trim();
   if(!name||!id){ toast('أدخل الاسم والكود'); return; }
+  // نتأكد إن كود العميل مش مستخدم بالفعل في حساب تاني (يمنع تكرار الكود اللي بيبوّظ ربط الطلبات)
+  const dupSnap=await db.ref('factory/clients').orderByChild('customerId').equalTo(id).once('value');
+  let dupFound=false;
+  dupSnap.forEach(c=>{ if(c.key!==editingClientKey) dupFound=true; });
+  if(dupFound){ toast('⚠️ كود العميل ده مستخدم بالفعل مع عميل تاني — استخدم كود مختلف'); return; }
   const data={
     name, customerId:id,
     phone:$('client-phone-input').value.trim(),
