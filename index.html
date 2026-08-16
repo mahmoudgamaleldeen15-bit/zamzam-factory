@@ -504,7 +504,7 @@
 <div class="modal-overlay" id="modal-add-product">
   <div class="modal-sheet" style="position:relative">
     <div class="modal-handle"></div>
-    <button class="modal-close" onclick="closeModal('modal-add-product')">✕</button>
+    <button class="modal-close" onclick="attemptCloseAddProduct()">✕</button>
     <p class="modal-title" id="modal-product-name">إضافة منتج</p>
     <div class="form-group">
       <label class="form-label">الوحدة</label>
@@ -533,7 +533,17 @@
     </div>
     <div id="modal-added-summary" class="added-summary" style="display:none"></div>
     <button class="btn btn-blue btn-full" style="margin-top:16px" onclick="addToCart()">إضافة للطلب</button>
-    <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeModal('modal-add-product')">تم — إغلاق</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="attemptCloseAddProduct()">تم — إغلاق</button>
+  </div>
+</div>
+
+<!-- تنبيه: كمية مختارة لسه ما اتضافتش للطلب قبل الإغلاق -->
+<div class="modal-overlay" id="modal-unsaved-qty">
+  <div class="modal-sheet" style="position:relative">
+    <p class="modal-title">⚠️ لسه ما ضفتش الكمية دي للطلب</p>
+    <p id="unsaved-qty-msg" style="font-size:13px;color:var(--text-sub);margin-bottom:18px;line-height:1.7"></p>
+    <button class="btn btn-blue btn-full" onclick="confirmAddThenClose()">➕ أضف واغلق</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="discardAndClose()">تجاهل واغلق</button>
   </div>
 </div>
 
@@ -1029,14 +1039,42 @@ function custNav(view){
   ['home','cart','orders'].forEach(v=>{
     const el=$('cnav-'+v); if(el) el.classList.toggle('active', v===view);
   });
+  if(view!=='orders') detachMyOrdersListeners();
   renderCustContent();
 }
 async function renderCustContent(){
   const el=$('cust-content');
   if(custCurrentView==='home') el.innerHTML=renderCustomerMenu();
   else if(custCurrentView==='cart') el.innerHTML=renderCart();
-  else if(custCurrentView==='orders'){ el.innerHTML='<div class="empty-state"><div class="empty-state-icon">⏳</div><p>بنجيب طلباتك...</p></div>'; el.innerHTML=await renderMyOrders(); }
+  else if(custCurrentView==='orders'){
+    el.innerHTML='<div class="empty-state"><div class="empty-state-icon">⏳</div><p>بنجيب طلباتك...</p></div>';
+    attachMyOrdersListener(); // بيعرض أول نتيجة على طول، وبعدين بيحدّث لحظيًا مع أي تغيير في حالة الطلب
+  }
   updateCartDot();
+}
+// ============================================================
+// تحديث "طلباتي" لحظيًا — بيسمع لأي تغيير في طلبات العميل (استلام/تجهيز/جاهز) من غير ما يحتاج يعمل ريفريش
+// ============================================================
+let myOrdersListenerRefs=[];
+function detachMyOrdersListeners(){
+  myOrdersListenerRefs.forEach(r=>r.off('value'));
+  myOrdersListenerRefs=[];
+}
+function attachMyOrdersListener(){
+  detachMyOrdersListeners();
+  if(!currentUser||!currentUser.key) return;
+  const cb=async ()=>{
+    if(custCurrentView!=='orders') return;
+    $('cust-content').innerHTML=await renderMyOrders();
+  };
+  const refByKey=db.ref('factory/orders').orderByChild('clientKey').equalTo(currentUser.key);
+  refByKey.on('value', cb);
+  myOrdersListenerRefs.push(refByKey);
+  if(currentUser.customerId){
+    const refByCode=db.ref('factory/orders').orderByChild('customerId').equalTo(currentUser.customerId);
+    refByCode.on('value', cb);
+    myOrdersListenerRefs.push(refByCode);
+  }
 }
 // المنيو العامة: كل الأقسام كـ تابات فوق + قائمة منتجات بستيبر كمية على كل كارت
 function renderCustomerMenu(){
@@ -1196,12 +1234,12 @@ function selectUnit(u, el){
   el.classList.add('selected');
 }
 function modalQty(d){
-  modalQtyVal=Math.max(1, modalQtyVal+d);
+  modalQtyVal=Math.max(0, modalQtyVal+d);
   $('modal-qty').value=modalQtyVal;
 }
 function modalQtySet(v){
   let val=parseInt(v,10);
-  if(isNaN(val)||val<1) val=1;
+  if(isNaN(val)||val<0) val=0;
   modalQtyVal=val;
   $('modal-qty').value=modalQtyVal;
 }
@@ -1227,6 +1265,7 @@ function previewPhoto(inp){
 }
 function addToCart(){
   if(!modalSelectedUnit){ toast('اختر الوحدة أولًا'); return; }
+  if(!modalQtyVal||modalQtyVal<1){ toast('⚠️ اختر الكمية الأول'); return; }
   const item={
     prodKey: modalProduct.key,
     name: modalProduct.name,
@@ -1270,13 +1309,34 @@ function addToCart(){
     closeModal('modal-add-product');
   } else {
     // وضع الإضافة: نسيب المودال مفتوح عشان العميل يقدر يختار وحدة تانية من نفس المنتج على طول
-    modalQtyVal=1;
-    $('modal-qty').value=1;
+    // العداد بيرجع صفر (مش 1) عشان العميل يبقى متأكد إن مفيش حاجة اتضافت لوحده من غير ما يدوس الزرار
+    modalQtyVal=0;
+    $('modal-qty').value=0;
     $('modal-note').value='';
     modalPhotos=[];
     renderModalPhotos();
     renderModalAddedSummary();
   }
+}
+// بيتنادى لما العميل يحاول يقفل مودال إضافة المنتج (بالـ ✕ أو زرار "تم")
+// لو عنده كمية مختارة لسه ما اتضافتش للطلب، بيوقفه ويسأله قبل ما يقفل عشان مايفتكرش إنها اتضافت
+function attemptCloseAddProduct(){
+  const isAddMode = modalEditIndex===-1; // في وضع "تعديل" العنصر أصلاً محفوظ بالفعل، فمفيش داعي للتنبيه
+  if(isAddMode && modalQtyVal>0 && modalSelectedUnit && modalProduct){
+    $('unsaved-qty-msg').textContent='عندك '+modalQtyVal+' '+modalSelectedUnit+' من "'+modalProduct.name+'" لسه ما اتضافتش للطلب.';
+    openModal('modal-unsaved-qty');
+  } else {
+    closeModal('modal-add-product');
+  }
+}
+function confirmAddThenClose(){
+  closeModal('modal-unsaved-qty');
+  addToCart();
+  closeModal('modal-add-product');
+}
+function discardAndClose(){
+  closeModal('modal-unsaved-qty');
+  closeModal('modal-add-product');
 }
 function renderModalAddedSummary(){
   if(!modalProduct) return;
@@ -1705,7 +1765,7 @@ function printOrder(key){
   const o=orders[key]; if(!o) return;
   const adds=o.additions?Object.values(o.additions).sort((a,b)=>a.ts-b.ts):[];
   const w=window.open('','_blank','width=480,height=700');
-  const totalQty=(o.items||[]).reduce((s,i)=>s+(i.qty||0),0);
+  const totalItems=(o.items||[]).length;
   const photoLink=orderHasPhotos(o)?`resume.html?id=${key}`:'';
 
   const itemRow=(i,idx)=>`<tr>
@@ -1769,7 +1829,7 @@ function printOrder(key){
     <table class="items"><thead><tr><th></th><th class="c-name">المنتج</th><th>الوحدة</th><th>الكمية</th></tr></thead><tbody>
       ${(o.items||[]).map(itemRow).join('')}
     </tbody></table>
-    <div class="total-row"><span>إجمالي القطع</span><span>${totalQty}</span></div>
+    <div class="total-row"><span>عدد الأصناف بالطلب</span><span>${totalItems}</span></div>
     ${adds.map((a,i)=>`<div class="addition-box">
       <div class="addition-title">⚠️ إضافة رقم ${i+1} — ${fmtTime(a.ts)}</div>
       ${(a.items||[]).map(it=>`<div class="addition-item">${it.emoji?it.emoji+' ':''}${it.name} — ${it.unit} × ${it.qty}${it.note?' — 📝 '+it.note:''}${it.photoCount?' — 📷×'+it.photoCount:''}</div>`).join('')}
