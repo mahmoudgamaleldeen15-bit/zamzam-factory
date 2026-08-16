@@ -6,8 +6,15 @@
 <meta name="theme-color" content="#1A7FE8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ZamZam">
 <title>ZamZam Dessert Factory</title>
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+<link rel="shortcut icon" href="icons/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   :root{
@@ -160,6 +167,8 @@
   .store-title{font-size:19px;font-weight:800;color:var(--blue)}
   .store-sub{font-size:11px;color:var(--text-muted);margin-top:3px}
   .store-footer{text-align:center;padding:7px;font-size:10.5px;color:var(--gray-border);cursor:pointer;user-select:none;-webkit-user-select:none;flex-shrink:0;background:#fff}
+  .install-banner{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;background:var(--blue);color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;padding:11px;cursor:pointer;flex-shrink:0}
+  .install-banner:active{background:var(--blue-dark)}
   .menu-tabs{margin-bottom:12px}
   .menu-tabs .tab-btn{font-weight:700;font-size:13px;color:var(--text-sub)}
   .menu-tabs .tab-btn.active{color:var(--blue)}
@@ -390,6 +399,9 @@
     <div class="store-title">ZamZam Dessert Factory</div>
     <div class="store-sub">قائمة المنتجات 🍰</div>
   </div>
+  <button id="install-app-btn" class="install-banner" style="display:none" onclick="installApp()">
+    📲 ثبّت التطبيق على جهازك
+  </button>
   <div class="topbar no-print">
     <div class="topbar-left">
       <span class="topbar-title">القائمة</span>
@@ -2225,6 +2237,34 @@ function viewClientOrders(clientKey){
 // المنيو العامة هي الشاشة الرئيسية دايمًا؛ جلسة الأدمن/الكاشير (لو موجودة) بترجع للذاكرة بس
 // من غير ما تفتح شاشتهم تلقائي — يفتحوا شاشتهم بالزرار السري بتاعهم في هيدر/فوتر المنيو.
 restoreSession().then(goToCustomerMenu);
+
+// تسجيل الـ Service Worker عشان التطبيق يبقى قابل للتثبيت (PWA)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+// زرار "ثبّت التطبيق" — بيظهر تلقائيًا لو المتصفح بيدعم التثبيت (Android/Chrome/Edge...)
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  const btn=$('install-app-btn');
+  if(btn) btn.style.display='flex';
+});
+function installApp(){
+  if(!deferredInstallPrompt){ toast('التطبيق مثبت بالفعل، أو المتصفح ده مش بيدعم التثبيت المباشر (على آيفون: من زرار المشاركة اختار "إضافة إلى الشاشة الرئيسية")'); return; }
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(()=>{
+    deferredInstallPrompt=null;
+    const btn=$('install-app-btn'); if(btn) btn.style.display='none';
+  });
+}
+window.addEventListener('appinstalled', ()=>{
+  const btn=$('install-app-btn'); if(btn) btn.style.display='none';
+  toast('✅ اتثبت التطبيق بنجاح');
+});
 </script>
 </body>
 </html>
