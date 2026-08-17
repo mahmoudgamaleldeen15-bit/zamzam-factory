@@ -1094,6 +1094,17 @@ async function goToCustomerMenu(){
   custCurrentView='home';
   await loadData();
   custNav('home');
+  attachSettingsListener();
+}
+// بيسمع لحظيًا لأي تغيير في إعدادات المتجر (إظهار الأسعار، واتساب...) عشان العميل يشوف التحديث فورًا من غير ريفريش
+let _settingsListenerAttached=false;
+function attachSettingsListener(){
+  if(_settingsListenerAttached) return;
+  _settingsListenerAttached=true;
+  db.ref('factory/settings').on('value', snap=>{
+    adminSettings=snap.val()||{};
+    if(custCurrentView==='home'||custCurrentView==='cart') renderCustContent();
+  });
 }
 async function loadData(){
   const [cSnap,pSnap,sSnap]=await Promise.all([
