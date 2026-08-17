@@ -234,6 +234,13 @@
   .photo-thumb-remove{position:absolute;top:-6px;left:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:#fff;border:2px solid #fff;font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
   .photo-hint{font-size:10.5px;color:var(--text-muted);margin-top:6px}
   .added-summary{background:var(--green-light);border:1px solid var(--green);border-radius:var(--r-sm);padding:10px 12px;margin-top:16px}
+  .add-to-order-btn{display:none;animation:addBtnPop .35s cubic-bezier(.34,1.56,.64,1)}
+  .add-to-order-btn.show{display:flex}
+  @keyframes addBtnPop{
+    0%{transform:scale(.8) translateY(6px);opacity:0}
+    60%{transform:scale(1.04) translateY(0);opacity:1}
+    100%{transform:scale(1) translateY(0);opacity:1}
+  }
   .added-summary-title{font-size:11.5px;font-weight:700;color:var(--green);margin-bottom:6px}
   .added-summary-row{font-size:12.5px;font-weight:600;color:var(--text);padding:2px 0}
   .confirm-box{background:var(--blue-light);border:1.5px solid var(--blue);border-radius:var(--r);padding:12px;margin-top:14px}
@@ -580,7 +587,7 @@
       <div class="photo-thumbs" id="modal-photos-preview"></div>
     </div>
     <div id="modal-added-summary" class="added-summary" style="display:none"></div>
-    <button class="btn btn-blue btn-full" style="margin-top:16px" onclick="addToCart()">إضافة للطلب</button>
+    <button class="btn btn-blue btn-full add-to-order-btn" id="modal-add-btn" style="margin-top:16px" onclick="addToCart()">إضافة للطلب</button>
     <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="attemptCloseAddProduct()">تم — إغلاق</button>
   </div>
 </div>
@@ -1316,6 +1323,7 @@ function openAddProduct(prodKey, initialQty, editIdx){
   $('modal-photo-input').value='';
   $('modal-photo-group').style.display=p.allowPhoto?'block':'none';
   renderModalAddedSummary();
+  updateAddBtnVisibility();
   openModal('modal-add-product');
 }
 // بيتنادى لما العميل يضغط على المنتج نفسه أو زرار + — دايمًا بيفتح "إضافة جديدة"
@@ -1335,12 +1343,29 @@ function selectUnit(u, el){
 function modalQty(d){
   modalQtyVal=Math.max(0, modalQtyVal+d);
   $('modal-qty').value=modalQtyVal;
+  updateAddBtnVisibility();
 }
 function modalQtySet(v){
   let val=parseInt(v,10);
   if(isNaN(val)||val<0) val=0;
   modalQtyVal=val;
   $('modal-qty').value=modalQtyVal;
+  updateAddBtnVisibility();
+}
+// بيظهر زرار "إضافة للطلب" بس لما الكمية أكبر من صفر — عشان يبقى مؤشر واضح للعميل إنه لسه محددش كمية
+function updateAddBtnVisibility(){
+  const btn=$('modal-add-btn');
+  if(!btn) return;
+  const shouldShow=modalQtyVal>0;
+  const isShown=btn.classList.contains('show');
+  if(shouldShow&&!isShown){
+    btn.classList.add('show');
+    btn.style.animation='none';
+    void btn.offsetWidth; // إعادة تشغيل الأنيميشن من الأول في كل مرة يظهر فيها
+    btn.style.animation='';
+  } else if(!shouldShow){
+    btn.classList.remove('show');
+  }
 }
 function renderModalPhotos(){
   const el=$('modal-photos-preview');
@@ -1415,6 +1440,7 @@ function addToCart(){
     modalPhotos=[];
     renderModalPhotos();
     renderModalAddedSummary();
+    updateAddBtnVisibility();
   }
 }
 // بيتنادى لما العميل يحاول يقفل مودال إضافة المنتج (بالـ ✕ أو زرار "تم")
