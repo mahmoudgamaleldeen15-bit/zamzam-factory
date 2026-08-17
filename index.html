@@ -322,6 +322,12 @@
 
   /* ===== SECTION HEADER ===== */
   .section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;margin-top:4px}
+  .admin-cat-group-title{font-size:12.5px;font-weight:800;color:var(--blue);margin:16px 0 8px;padding-bottom:5px;border-bottom:2px solid var(--gray-100)}
+  .admin-cat-group-title:first-of-type{margin-top:0}
+  .reorder-arrows{display:flex;flex-direction:column;gap:2px;flex:none}
+  .reorder-arrows button{width:24px;height:20px;border:1px solid var(--gray-border);background:#fff;border-radius:5px;font-size:9px;color:var(--text-sub);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit}
+  .reorder-arrows button:disabled{opacity:.3;cursor:not-allowed}
+  .reorder-arrows button:not(:disabled):active{background:var(--blue-light);color:var(--blue)}
   .section-title{font-size:12px;font-weight:600;color:var(--text-sub);text-transform:uppercase;letter-spacing:.06em}
   .section-action{font-size:12px;color:var(--blue);cursor:pointer;font-weight:600;background:none;border:none;font-family:inherit}
 
@@ -2278,14 +2284,36 @@ function renderAdminDash(){
   </div>`;
 }
 function renderAdminProducts(){
-  const prods=Object.entries(products).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
-  let html=`<div class="section-hdr"><span class="section-title">المنتجات (${prods.length})</span><button class="section-action" onclick="openAddProductAdmin()">+ إضافة</button></div>`;
-  if(!prods.length) return html+`<div class="empty-state"><div class="empty-state-icon">📦</div><p>مفيش منتجات</p></div>`;
-  prods.forEach(([k,p])=>{
-    const cat=categories[p.catId]||{};
-    html+=`<div class="card">
+  const allProds=Object.entries(products);
+  let html=`<div class="section-hdr"><span class="section-title">المنتجات (${allProds.length})</span><button class="section-action" onclick="openAddProductAdmin()">+ إضافة</button></div>`;
+  if(!allProds.length) return html+`<div class="empty-state"><div class="empty-state-icon">📦</div><p>مفيش منتجات</p></div>`;
+  html+=`<p style="font-size:11px;color:var(--text-muted);margin-bottom:10px">استخدم الأسهم لترتيب ظهور المنتجات جوه كل قسم زي ما يناسبك</p>`;
+  const catsSorted=Object.entries(categories).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+  catsSorted.forEach(([catKey,cat])=>{
+    const prodsInCat=allProds.filter(([k,p])=>p.catId===catKey).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+    if(!prodsInCat.length) return;
+    html+=`<div class="admin-cat-group-title">${cat.emoji||''} ${cat.name}</div>`;
+    prodsInCat.forEach(([k,p],i)=>{
+      html+=renderAdminProductCard(k,p,cat,i,prodsInCat.length);
+    });
+  });
+  const orphanProds=allProds.filter(([k,p])=>!categories[p.catId]).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+  if(orphanProds.length){
+    html+=`<div class="admin-cat-group-title">📦 بدون قسم</div>`;
+    orphanProds.forEach(([k,p],i)=>{
+      html+=renderAdminProductCard(k,p,{},i,orphanProds.length);
+    });
+  }
+  return html;
+}
+function renderAdminProductCard(k,p,cat,i,groupLen){
+  return `<div class="card">
       <div class="card-head">
         <div style="display:flex;align-items:center;gap:10px">
+          <div class="reorder-arrows">
+            <button ${i===0?'disabled':''} onclick="moveProduct('${k}',-1)">▲</button>
+            <button ${i===groupLen-1?'disabled':''} onclick="moveProduct('${k}',1)">▼</button>
+          </div>
           <div style="font-size:28px">${p.emoji||'📦'}</div>
           <div><div class="client-name">${p.name}</div><div class="order-meta">${cat.name||'—'} · ${(p.units||[]).join('، ')}</div>${(p.unitPrices&&Object.keys(p.unitPrices).length)?`<div class="order-meta">💰 ${Object.entries(p.unitPrices).map(([u,pr])=>u+': '+pr+' ج').join(' · ')}</div>`:''}</div>
         </div>
@@ -2296,8 +2324,22 @@ function renderAdminProducts(){
         <button class="btn btn-ghost" style="color:var(--red)" onclick="deleteProduct('${k}')">🗑️ حذف</button>
       </div>
     </div>`;
-  });
-  return html;
+}
+async function moveProduct(key, direction){
+  const p=products[key];
+  if(!p) return;
+  const siblings=Object.entries(products).filter(([k,pp])=>pp.catId===p.catId).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+  const idx=siblings.findIndex(([k])=>k===key);
+  const swapIdx=idx+direction;
+  if(idx===-1||swapIdx<0||swapIdx>=siblings.length) return;
+  const [keyA,prodA]=siblings[idx];
+  const [keyB,prodB]=siblings[swapIdx];
+  const orderA=prodA.order||0, orderB=prodB.order||0;
+  await db.ref('factory/products/'+keyA+'/order').set(orderB);
+  await db.ref('factory/products/'+keyB+'/order').set(orderA);
+  products[keyA]={...products[keyA],order:orderB};
+  products[keyB]={...products[keyB],order:orderA};
+  refreshAdminTab();
 }
 function openAddProductAdmin(){
   editingProdKey=null;
@@ -2398,15 +2440,39 @@ async function toggleProductAvail(key, el){
 }
 function renderAdminCategories(){
   const cats=Object.entries(categories).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
-  let html=`<div class="section-hdr"><span class="section-title">الأقسام (${cats.length})</span><button class="section-action" onclick="openAddCategoryAdmin()">+ إضافة</button></div>`;
+  let html=`<div class="section-hdr"><span class="section-title">الأقسام (${cats.length})</span><button class="section-action" onclick="openAddCategoryAdmin()">+ إضافة</button></div>
+  <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px">استخدم الأسهم لترتيب ظهور الأقسام للعميل زي ما يناسبك</p>`;
   html+=`<div class="audit-list">`;
-  cats.forEach(([k,c])=>{
+  cats.forEach(([k,c],i)=>{
     const pCount=Object.values(products).filter(p=>p.catId===k).length;
-    html+=`<div class="audit-item" style="justify-content:space-between;cursor:pointer" onclick="editCategoryAdmin('${k}')"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">${c.emoji||'📦'}</span><div><div style="font-size:13px;font-weight:600">${c.name}</div><div style="font-size:11px;color:var(--text-muted)">${pCount} منتج</div></div></div>
-    <button style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer" onclick="event.stopPropagation();deleteCategory('${k}')">🗑️</button></div>`;
+    html+=`<div class="audit-item" style="justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1" onclick="editCategoryAdmin('${k}')">
+        <div class="reorder-arrows">
+          <button ${i===0?'disabled':''} onclick="event.stopPropagation();moveCategory('${k}',-1)">▲</button>
+          <button ${i===cats.length-1?'disabled':''} onclick="event.stopPropagation();moveCategory('${k}',1)">▼</button>
+        </div>
+        <span style="font-size:22px">${c.emoji||'📦'}</span>
+        <div><div style="font-size:13px;font-weight:600">${c.name}</div><div style="font-size:11px;color:var(--text-muted)">${pCount} منتج</div></div>
+      </div>
+      <button style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer" onclick="event.stopPropagation();deleteCategory('${k}')">🗑️</button>
+    </div>`;
   });
   html+=`</div>`;
   return html;
+}
+async function moveCategory(key, direction){
+  const cats=Object.entries(categories).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
+  const idx=cats.findIndex(([k])=>k===key);
+  const swapIdx=idx+direction;
+  if(idx===-1||swapIdx<0||swapIdx>=cats.length) return;
+  const [keyA,catA]=cats[idx];
+  const [keyB,catB]=cats[swapIdx];
+  const orderA=catA.order||0, orderB=catB.order||0;
+  await db.ref('factory/categories/'+keyA+'/order').set(orderB);
+  await db.ref('factory/categories/'+keyB+'/order').set(orderA);
+  categories[keyA]={...categories[keyA],order:orderB};
+  categories[keyB]={...categories[keyB],order:orderA};
+  refreshAdminTab();
 }
 function openAddCategoryAdmin(){
   editingCategoryKey=null;
