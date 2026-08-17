@@ -386,6 +386,10 @@
       <label class="form-label">رقم PIN</label>
       <input class="form-input" type="password" id="customer-pin" placeholder="••••" inputmode="numeric" maxlength="6">
     </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-sub);margin-bottom:16px;cursor:pointer;user-select:none">
+      <input type="checkbox" id="customer-remember-me" style="width:17px;height:17px;accent-color:var(--blue);cursor:pointer">
+      تذكرني — متطلبش مني الكود والـ PIN تاني على الجهاز ده
+    </label>
     <button class="btn-login" onclick="loginThenConfirm()"><span>متابعة الطلب</span></button>
     <div class="login-error" id="login-error">❌ بيانات غير صحيحة، حاول مرة أخرى</div>
   </div>
@@ -577,7 +581,7 @@
       <label class="form-label">الكمية</label>
       <div style="display:flex;align-items:center;gap:14px;margin-top:6px">
         <button class="qty-btn" onclick="modalQty(-1)" style="width:38px;height:38px">−</button>
-        <input id="modal-qty" type="number" inputmode="numeric" min="1" value="1" onclick="this.select()" onchange="modalQtySet(this.value)" style="font-size:20px;font-weight:700;width:48px;text-align:center;border:1.5px solid var(--gray-border);border-radius:8px;padding:5px 2px;font-family:inherit">
+        <input id="modal-qty" type="number" inputmode="numeric" min="0" value="0" onclick="this.select()" onchange="modalQtySet(this.value)" style="font-size:20px;font-weight:700;width:48px;text-align:center;border:1.5px solid var(--gray-border);border-radius:8px;padding:5px 2px;font-family:inherit">
         <button class="qty-btn" onclick="modalQty(1)" style="width:38px;height:38px">+</button>
       </div>
     </div>
@@ -991,6 +995,9 @@ async function loginCustomer(){
   snap.forEach(c=>{ const v=c.val(); if(v.pinHash===hashPin(pin)&&v.active!==false){found=v;foundKey=c.key;} });
   if(!found){showLoginError('PIN غير صحيح أو الحساب موقف');return false;}
   currentRole='customer'; currentUser={...found, key:foundKey};
+  if($('customer-remember-me').checked){
+    localStorage.setItem('zz_session',JSON.stringify({role:'customer',key:foundKey}));
+  }
   return true;
 }
 async function loginThenConfirm(){
@@ -1094,6 +1101,12 @@ async function restoreSession(){
     } else if(sess.role==='admin'){
       currentRole='admin'; currentUser={name:'Admin',key:'admin'};
       return;
+    } else if(sess.role==='customer'&&sess.key){
+      const snap=await db.ref('factory/clients/'+sess.key).once('value');
+      if(snap.exists()&&snap.val().active!==false){
+        currentRole='customer'; currentUser={...snap.val(),key:sess.key};
+        return;
+      }
     }
   }catch(e){}
   localStorage.removeItem('zz_session');
@@ -1311,7 +1324,7 @@ function openAddProduct(prodKey, initialQty, editIdx){
   const existing=(editIdx!=null&&editIdx>=0)?cart[editIdx]:null;
   modalProduct={key:prodKey,...p};
   modalEditIndex=(editIdx!=null&&editIdx>=0)?editIdx:-1;
-  modalQtyVal=existing?existing.qty:((initialQty&&initialQty>0)?initialQty:1);
+  modalQtyVal=existing?existing.qty:((initialQty&&initialQty>0)?initialQty:0);
   if(existing){
     modalSelectedUnit=existing.unit;
   } else {
@@ -1672,6 +1685,7 @@ async function resendWhatsAppForOrder(orderKey){
 }
 function customerIdentityLogout(){
   currentRole=null; currentUser=null; cartOrderId=null; cart=[];
+  localStorage.removeItem('zz_session');
   toast('تم الخروج من الحساب');
   custNav('home');
 }
