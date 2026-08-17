@@ -2479,11 +2479,18 @@ async function saveProduct(){
   if(!name){ toast('أدخل اسم المنتج'); return; }
   const units=[...$('admin-units-check').querySelectorAll('.unit-btn.selected')].map(b=>b.textContent);
   if(!units.length){ toast('اختر وحدة واحدة على الأقل'); return; }
-  const unitPrices={};
+  // نبدأ من الأسعار المحفوظة قبل كده (لو بنعدّل منتج موجود) عشان لو سبت خانة سعر وحدة فاضية، سعرها القديم يفضل زي ما هو من غير ما يتمسح
+  const prevPrices=(editingProdKey && products[editingProdKey] && products[editingProdKey].unitPrices) ? {...products[editingProdKey].unitPrices} : {};
+  const unitPrices={...prevPrices};
   $('admin-unit-prices').querySelectorAll('input[data-unit]').forEach(inp=>{
-    const v=parseFloat(inp.value);
+    const raw=inp.value.trim();
+    if(raw===''){ return; } // فاضية = سيبها زي ما هي، مانمسحش السعر القديم
+    const v=parseFloat(raw);
     if(!isNaN(v)&&v>0) unitPrices[inp.dataset.unit]=v;
+    else if(!isNaN(v)&&v<=0) delete unitPrices[inp.dataset.unit]; // كتب صفر صراحة = يمسح سعر الوحدة دي
   });
+  // نشيل أي سعر لوحدة بقت مش من ضمن الوحدات المختارة حاليًا
+  Object.keys(unitPrices).forEach(u=>{ if(!units.includes(u)) delete unitPrices[u]; });
   const data={
     name,
     catId: $('prod-cat-input').value,

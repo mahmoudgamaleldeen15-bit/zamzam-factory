@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zamzam-factory-v1';
+const CACHE_NAME = 'zamzam-factory-v2';
 const CORE_ASSETS = [
   'manifest.json',
   'icons/icon-192.png',
