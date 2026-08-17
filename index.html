@@ -2113,6 +2113,15 @@ function viewOrderDetail(key){
   openModal('modal-order-detail');
 }
 // بيبني محتوى ورقة طلب واحد (من غير غلاف الصفحة) — قابل لإعادة الاستخدام في الطباعة المفردة والمجمعة
+// الوحدات اللي بيظهر جمبها مربعات فارغة بعدد الكمية المطلوبة بالظبط (سيرفيس/صينية/صاج/وجبة/فورمة)
+const CHECKBOX_UNITS=['سيرفيس','صينية','صاج','وجبة','فورمة'];
+function buildCheckBoxes(unit, qty){
+  if(!qty||qty<1) return '';
+  // الوحدات المحددة: مربع لكل قطعة من الكمية — باقي الوحدات: مربع واحد ثابت بغض النظر عن الكمية
+  const count=CHECKBOX_UNITS.includes(unit)?qty:1;
+  const boxes=Array.from({length:count}).map(()=>'<span class="check-box"></span>').join('');
+  return `<div class="check-boxes">${boxes}</div>`;
+}
 function buildOrderSheetHTML(o, key){
   const adds=o.additions?Object.values(o.additions).sort((a,b)=>a.ts-b.ts):[];
   const totalItems=(o.items||[]).length;
@@ -2127,6 +2136,7 @@ function buildOrderSheetHTML(o, key){
       </td>
       <td class="c-unit">${i.unit||''}</td>
       <td class="c-qty">${i.qty}</td>
+      <td class="c-check">${buildCheckBoxes(i.unit,i.qty)}</td>
     </tr>`;
 
   return `<div class="sheet">
@@ -2143,13 +2153,13 @@ function buildOrderSheetHTML(o, key){
     </div>
 
     <div class="section-title">الطلب الأصلي</div>
-    <table class="items"><thead><tr><th></th><th class="c-name">المنتج</th><th>الوحدة</th><th>الكمية</th></tr></thead><tbody>
+    <table class="items"><thead><tr><th></th><th class="c-name">المنتج</th><th>الوحدة</th><th>الكمية</th><th>☑</th></tr></thead><tbody>
       ${(o.items||[]).map(itemRow).join('')}
     </tbody></table>
     <div class="total-row"><span>عدد الأصناف بالطلب</span><span>${totalItems}</span></div>
     ${adds.map((a,i)=>`<div class="addition-box">
       <div class="addition-title">⚠️ إضافة رقم ${i+1} — ${fmtTime(a.ts)}</div>
-      ${(a.items||[]).map(it=>`<div class="addition-item">${it.emoji?it.emoji+' ':''}${it.name} — ${it.unit} × ${it.qty}${it.note?' — 📝 '+it.note:''}${it.photoCount?' — 📷×'+it.photoCount:''}</div>`).join('')}
+      ${(a.items||[]).map(it=>`<div class="addition-item">${it.emoji?it.emoji+' ':''}${it.name} — ${it.unit} × ${it.qty}${it.note?' — 📝 '+it.note:''}${it.photoCount?' — 📷×'+it.photoCount:''}${buildCheckBoxes(it.unit,it.qty)}</div>`).join('')}
     </div>`).join('')}
     ${photoLink?`<div class="photo-note">📷 الطلب فيه صور مرفقة — لعرضها وتحميلها: ${photoLink}</div>`:''}
     <div class="footer">
@@ -2183,6 +2193,10 @@ function wrapPrintDoc(innerHtml, title){
     td.c-name{text-align:right;padding-right:8px}
     td.c-unit{text-align:center;color:#666;font-size:12px;white-space:nowrap}
     td.c-qty{text-align:center;font-weight:800;font-size:14px;white-space:nowrap}
+    td.c-check{text-align:center;vertical-align:top;padding-top:8px}
+    .check-boxes{display:flex;flex-direction:column;flex-wrap:wrap;align-content:center;gap:3px;max-height:120px}
+    .check-box{width:13px;height:13px;border:1.4px solid #333;flex:none;display:inline-block}
+    .addition-item .check-boxes{flex-direction:row;max-height:none;margin-top:5px;align-content:flex-start}
     .item-name{font-weight:700}
     .item-note{font-size:11px;color:#888;margin-top:3px}
     .item-photo-tag{display:inline-block;font-size:10px;background:#fef3e7;color:#c56a08;padding:2px 7px;border-radius:8px;margin-top:4px;font-weight:700}
