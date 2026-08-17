@@ -1467,7 +1467,7 @@ function renderModalAddedSummary(){
   if(!modalProduct) return;
   const el=$('modal-added-summary');
   const entries=cart.filter(ci=>ci.prodKey===modalProduct.key);
-  if(entries.length>=2){
+  if(entries.length>=1){
     el.style.display='block';
     el.innerHTML='<div class="added-summary-title">✅ إجمالي المضاف للطلب من '+modalProduct.name+':</div>'
       + entries.map(e=>`<div class="added-summary-row">${e.emoji||''} ${e.name} — ${e.unit} × ${e.qty}</div>`).join('');
