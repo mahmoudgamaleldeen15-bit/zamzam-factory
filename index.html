@@ -1883,8 +1883,8 @@ function refreshCashierTab(){
   else if(cashierCurrentTab==='excel') el.innerHTML=renderCashierExcel();
 }
 function renderCashierNew(){
-  const newOrders=Object.values(orders).filter(o=>!o.archived&&o.status==='new').sort((a,b)=>a.ts-b.ts);
-  const withAdditions=Object.values(orders).filter(o=>!o.archived&&o.status!=='new'&&o.hasNewAddition).sort((a,b)=>a.lastAdditionTs-b.lastAdditionTs);
+  const newOrders=Object.values(orders).filter(o=>!o.archived&&o.status==='new').sort((a,b)=>b.ts-a.ts);
+  const withAdditions=Object.values(orders).filter(o=>!o.archived&&o.status!=='new'&&o.hasNewAddition).sort((a,b)=>b.lastAdditionTs-a.lastAdditionTs);
   let html='';
   if(newOrders.length||withAdditions.length){
     html+=`<div class="alert-banner">
@@ -1926,7 +1926,7 @@ function cashierOrderCard(o, type){
   </div>`;
 }
 function renderCashierProg(){
-  const progOrders=Object.values(orders).filter(o=>!o.archived&&o.status==='received').sort((a,b)=>a.ts-b.ts);
+  const progOrders=Object.values(orders).filter(o=>!o.archived&&o.status==='received').sort((a,b)=>b.ts-a.ts);
   if(!progOrders.length) return `<div class="empty-state"><div class="empty-state-icon">🟡</div><p>مفيش طلبات جاري تجهيزها</p></div>`;
   return progOrders.map(o=>{
     const adds=o.additions?Object.values(o.additions).sort((a,b)=>a.ts-b.ts):[];
