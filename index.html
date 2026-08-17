@@ -1731,9 +1731,11 @@ function updateCashierTime(){
 }
 let _ordersBaselineReady=false;
 let _knownOrderKeys=new Set();
+let _knownAdditionFlags=new Map(); // بيتتبع حالة hasNewAddition لكل طلب عشان نكتشف لما تتحول من false لـ true
 function listenOrders(){
   _ordersBaselineReady=false;
   _knownOrderKeys=new Set();
+  _knownAdditionFlags=new Map();
   db.ref('factory/orders').on('value', snap=>{
     const freshOrders={};
     const freshKeys=new Set();
@@ -1749,10 +1751,22 @@ function listenOrders(){
             newlyDetected++;
           }
         });
-        if(newlyDetected>0 && !bellMuted) playBell();
+        // نكتشف الإضافات الجديدة على طلبات موجودة (لما hasNewAddition تتحول من false لـ true)
+        let additionDetected=0;
+        freshKeys.forEach(k=>{
+          const wasFlag=_knownAdditionFlags.get(k)||false;
+          const isFlag=!!freshOrders[k].hasNewAddition;
+          if(isFlag && !wasFlag && !freshOrders[k].archived) additionDetected++;
+        });
+        if(!bellMuted){
+          if(newlyDetected>0) playBellNewOrder();
+          else if(additionDetected>0) playBellAddition();
+        }
       } else {
         _ordersBaselineReady=true;
       }
+      // تحديث حالة الإضافات المعروفة لكل الطلبات عشان المقارنة الجاية تبقى صح
+      _knownAdditionFlags=new Map(freshKeys.size?[...freshKeys].map(k=>[k, !!freshOrders[k].hasNewAddition]):[]);
     }
     _knownOrderKeys=freshKeys;
     orders=freshOrders;
@@ -1801,12 +1815,12 @@ function dismissNewOrderPopup(){
   closeModal('modal-new-order-popup');
   pendingNewOrders=[];
 }
-function playBell(){
+// دالة مشتركة بتشغّل أي نغمة (سلسلة نغمات) بضاغط صوت وهارمونيك لصوت قوي وواضح
+function playChime(notes){
   try{
     if(!window._bellCtx) window._bellCtx=new (window.AudioContext||window.webkitAudioContext)();
     const ctx=window._bellCtx;
     if(ctx.state==='suspended') ctx.resume();
-    // ضاغط صوت (Compressor) عشان نقدر نرفع مستوى الصوت لأقصى درجة من غير ما "يتكسر" أو يشوّه
     const compressor=ctx.createDynamicsCompressor();
     compressor.threshold.setValueAtTime(-14, ctx.currentTime);
     compressor.knee.setValueAtTime(8, ctx.currentTime);
@@ -1814,29 +1828,38 @@ function playBell(){
     compressor.attack.setValueAtTime(0.002, ctx.currentTime);
     compressor.release.setValueAtTime(0.15, ctx.currentTime);
     compressor.connect(ctx.destination);
-    const beep=(freq,start,dur,vol)=>{
-      // النغمة الأساسية + هارمونيك مضاعف خفيف عشان الصوت يبقى أقوى وأمتلى وأوضح (مش نغمة رفيعة ضعيفة)
-      [[1,1],[2,.4]].forEach(([mult,volMult])=>{
+    const beep=(freq,start,dur,vol,harmonics)=>{
+      harmonics.forEach(([mult,volMult])=>{
         const osc=ctx.createOscillator(), gain=ctx.createGain();
         osc.type='sine'; osc.frequency.value=freq*mult;
         const peakVol=(vol||1)*volMult;
         gain.gain.setValueAtTime(0.0001, ctx.currentTime+start);
-        gain.gain.exponentialRampToValueAtTime(peakVol, ctx.currentTime+start+0.015);
+        gain.gain.exponentialRampToValueAtTime(peakVol, ctx.currentTime+start+0.013);
         gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+start+dur);
         osc.connect(gain); gain.connect(compressor);
         osc.start(ctx.currentTime+start);
         osc.stop(ctx.currentTime+start+dur+0.03);
       });
     };
-    // نغمة "دينج-دونج" قوية وواضحة، مكررة 3 مرات على مستوى صوت قريب من الأقصى عشان تتسمع فعليًا حتى لو الضوضاء حوالين المحاسب عالية
-    beep(988,0,.24,1);
-    beep(1319,.26,.32,1);
-    beep(988,.70,.22,.95);
-    beep(1319,.94,.30,.95);
-    beep(988,1.40,.20,.85);
-    beep(1319,1.62,.28,.85);
+    notes.forEach(([freq,start,dur,vol,harmonics])=>beep(freq,start,dur,vol,harmonics||[[1,1],[2,.4]]));
   }catch(e){}
   $('bell-btn').style.color='var(--red)';
+}
+// نغمة "طلب جديد أول مرة" — مميزة وهارمونية غنية (دو-مي-صول صاعدة) عشان تتفرق فورًا عن نغمة الإضافة
+function playBellNewOrder(){
+  const rich=[[1,1],[2,.4],[3,.18]];
+  playChime([
+    [523,0,.20,1,rich], [659,.20,.20,1,rich], [784,.40,.34,1,rich],
+    [523,.85,.16,.85,rich], [659,1.01,.16,.85,rich], [784,1.17,.30,.85,rich]
+  ]);
+}
+// نغمة "إضافة على طلب موجود" — نفس نغمة الدينج-دونج المعتادة زي ما هي
+function playBellAddition(){
+  playChime([
+    [988,0,.24,1], [1319,.26,.32,1],
+    [988,.70,.22,.95], [1319,.94,.30,.95],
+    [988,1.40,.20,.85], [1319,1.62,.28,.85]
+  ]);
 }
 function muteBell(){
   bellMuted=!bellMuted;
