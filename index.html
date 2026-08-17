@@ -90,6 +90,7 @@
     50%{box-shadow:0 0 20px 5px rgba(226,75,74,.65)}
   }
   .card.order-received{border-right:4px solid var(--orange);opacity:.92}
+  .card.order-ready-done{border-right:4px solid var(--green);opacity:.88}
   .received-tag{display:flex;align-items:center;gap:6px;background:var(--green-light);color:var(--green);font-size:11.5px;font-weight:700;border-radius:var(--r-sm);padding:7px 10px;margin-top:8px}
   @keyframes badgePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
   .tab-count.pulse{animation:badgePulse 1.2s ease-in-out infinite}
@@ -525,6 +526,7 @@
     <button class="tab-btn" onclick="cashierTab('prog')" id="ctab-prog">
       🟡 جاري <span class="tab-count-o" id="prog-count-badge">0</span>
     </button>
+    <button class="tab-btn" onclick="cashierTab('ready')" id="ctab-ready">✅ مكتمل</button>
     <button class="tab-btn" onclick="cashierTab('clients')" id="ctab-clients">👥 العملاء</button>
     <button class="tab-btn" onclick="cashierTab('print')" id="ctab-print">🖨️ طباعة</button>
     <button class="tab-btn" onclick="cashierTab('excel')" id="ctab-excel">📊 Excel</button>
@@ -1815,7 +1817,7 @@ function muteBell(){
 }
 function cashierTab(tab){
   cashierCurrentTab=tab;
-  ['new','prog','clients','print','excel'].forEach(t=>{
+  ['new','prog','ready','clients','print','excel'].forEach(t=>{
     $('ctab-'+t).classList.toggle('active',t===tab);
   });
   refreshCashierTab();
@@ -1824,6 +1826,7 @@ function refreshCashierTab(){
   const el=$('cashier-content');
   if(cashierCurrentTab==='new') el.innerHTML=renderCashierNew();
   else if(cashierCurrentTab==='prog') el.innerHTML=renderCashierProg();
+  else if(cashierCurrentTab==='ready') el.innerHTML=renderCashierReady();
   else if(cashierCurrentTab==='clients') el.innerHTML=renderCashierClients();
   else if(cashierCurrentTab==='print') el.innerHTML=renderCashierPrint();
   else if(cashierCurrentTab==='excel') el.innerHTML=renderCashierExcel();
@@ -1890,6 +1893,30 @@ function renderCashierProg(){
       </div>
       <div class="card-footer">
         <button class="btn btn-green" onclick="markReady('${o.key}')">✅ تم التجهيز — جاهز</button>
+        <button class="btn btn-icon" onclick="printOrder('${o.key}')">🖨️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function renderCashierReady(){
+  const readyOrders=Object.values(orders).filter(o=>!o.archived&&o.status==='ready').sort((a,b)=>(b.readyAt||b.ts)-(a.readyAt||a.ts));
+  if(!readyOrders.length) return `<div class="empty-state"><div class="empty-state-icon">✅</div><p>مفيش طلبات مكتملة لسه</p></div>`;
+  return readyOrders.map(o=>{
+    const adds=o.additions?Object.values(o.additions).sort((a,b)=>a.ts-b.ts):[];
+    const addHtml=adds.map((a,i)=>`<div class="addition-block"><div class="addition-label">⚠️ [إضافة رقم ${i+1}] — ${fmtTime(a.ts)}</div><div style="font-size:13.5px;font-weight:700;color:var(--text)">${(a.items||[]).map(it=>`${it.name} × ${it.qty} ${it.unit}${it.photoCount?' 📷×'+it.photoCount:''}`).join(' · ')}</div></div>`).join('');
+    return `<div class="card order-ready-done">
+      <div class="card-head">
+        <div><div class="client-name">${o.clientName}</div><div class="order-meta">#${o.key.slice(-4).toUpperCase()} · ${fmtTime(o.ts)}</div></div>
+        <span class="badge badge-ready"><span class="badge-dot" style="background:var(--green)"></span>جاهز</span>
+      </div>
+      <div class="card-body">
+        <div class="order-items-text">${(o.items||[]).map(i=>`${i.emoji||''} ${i.name} — ${i.unit} × ${i.qty}${i.photoCount?' 📷×'+i.photoCount:''}`).join('<br>')}</div>
+        ${addHtml}
+        <div class="received-tag" style="background:var(--green-light);color:var(--green)">✅ اتجهّز بمعرفة: ${o.readyBy||o.receivedBy||'—'} — ${fmtTime(o.readyAt||o.ts)}</div>
+        ${orderHasPhotos(o)?`<a href="resume.html?id=${o.key}" target="_blank" class="btn btn-outline btn-full" style="height:34px;font-size:11.5px;margin-top:8px;text-decoration:none">📷 عرض/تحميل الصور المرفقة</a>`:''}
+      </div>
+      <div class="card-footer">
+        <button class="btn btn-ghost" onclick="viewOrderDetail('${o.key}')">👁️ عرض</button>
         <button class="btn btn-icon" onclick="printOrder('${o.key}')">🖨️</button>
       </div>
     </div>`;
