@@ -206,6 +206,10 @@
   .install-banner{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;background:var(--blue);color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;padding:11px;cursor:pointer;flex-shrink:0}
   .install-banner:active{background:var(--blue-dark)}
   .menu-tabs{margin-bottom:12px}
+  .menu-search-box{position:relative;margin-bottom:12px}
+  .menu-search-input{width:100%;height:42px;border:1.5px solid var(--gray-border);border-radius:var(--r-sm);padding:0 40px 0 14px;font-size:13px;font-family:inherit;background:#fff;color:var(--text)}
+  .menu-search-input:focus{outline:none;border-color:var(--blue)}
+  .menu-search-clear{position:absolute;left:8px;top:50%;transform:translateY(-50%);width:26px;height:26px;border:none;background:var(--gray-100);border-radius:50%;color:var(--text-sub);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
   .menu-tabs .tab-btn{font-weight:700;font-size:13px;color:var(--text-sub)}
   .menu-tabs .tab-btn.active{color:var(--blue)}
   .menu-list{display:flex;flex-direction:column;gap:10px}
@@ -1116,6 +1120,9 @@ async function restoreSession(){
 // CUSTOMER (منيو عامة بدون تسجيل دخول)
 // ============================================================
 let menuActiveCat='all';
+let menuSearchQuery='';
+let adminClientSearchQuery='';
+let cashierClientSearchQuery='';
 // أول ما التطبيق يفتح — المنيو العامة هي الشاشة الرئيسية دايمًا
 async function goToCustomerMenu(){
   showScreen('screen-customer');
@@ -1212,6 +1219,10 @@ function renderCustomerMenu(){
       <button onclick="cancelAddToOrder()">❌ إلغاء وابدأ طلب جديد</button>
     </div>`;
   }
+  html+=`<div class="menu-search-box">
+    <input type="text" id="menu-search-input" class="menu-search-input" placeholder="🔍 دوّر على منتج..." value="${menuSearchQuery.replace(/"/g,'&quot;')}" oninput="setMenuSearch(this.value)">
+    ${menuSearchQuery?`<button class="menu-search-clear" onclick="clearMenuSearch()">✕</button>`:''}
+  </div>`;
   const cats=Object.entries(categories).sort((a,b)=>(a[1].order||0)-(b[1].order||0));
   html+=`<div class="tabs-bar menu-tabs">`;
   html+=`<button class="tab-btn${menuActiveCat==='all'?' active':''}" onclick="setMenuCat('all')">✨ الكل</button>`;
@@ -1220,13 +1231,14 @@ function renderCustomerMenu(){
   });
   html+=`</div>`;
 
+  const q=menuSearchQuery.trim().toLowerCase();
   const prods=Object.entries(products)
-    .filter(([k,p])=> menuActiveCat==='all' || p.catId===menuActiveCat)
+    .filter(([k,p])=> (menuActiveCat==='all' || p.catId===menuActiveCat) && (!q || (p.name||'').toLowerCase().includes(q)))
     .sort((a,b)=>(a[1].order||0)-(b[1].order||0));
 
   html+=`<div class="menu-list">`;
   if(!prods.length){
-    html+=`<div class="empty-state"><div class="empty-state-icon">📦</div><p>مفيش منتجات دلوقتي</p></div>`;
+    html+=q?`<div class="empty-state"><div class="empty-state-icon">🔍</div><p>مفيش منتجات بالاسم ده</p></div>`:`<div class="empty-state"><div class="empty-state-icon">📦</div><p>مفيش منتجات دلوقتي</p></div>`;
   }
   prods.forEach(([k,p])=>{
     const avail=p.available!==false;
@@ -1277,6 +1289,18 @@ function renderCustomerMenu(){
 }
 function setMenuCat(k){
   menuActiveCat=k;
+  renderCustContent();
+}
+// بيبحث عن منتج بالاسم أثناء الكتابة، وبيحافظ على تركيز الكيبورد في نفس مكانه بعد إعادة الرسم
+function setMenuSearch(v){
+  menuSearchQuery=v;
+  const cursorPos=v.length;
+  renderCustContent();
+  const inp=$('menu-search-input');
+  if(inp){ inp.focus(); inp.setSelectionRange(cursorPos,cursorPos); }
+}
+function clearMenuSearch(){
+  menuSearchQuery='';
   renderCustContent();
 }
 // المنتجات اللي وحدة واحدة وبدون صورة: تعديل الكمية مباشر على الكارت (بالـ +/- أو بالكتابة المباشرة)
@@ -1982,9 +2006,14 @@ function renderCashierClients(){
     byClient[o.clientKey].orders.push(o);
     byClient[o.clientKey].additions+=(o.additions?Object.keys(o.additions).length:0);
   });
-  const entries=Object.entries(byClient);
-  if(!entries.length) return `<div class="empty-state"><div class="empty-state-icon">👥</div><p>مفيش طلبات اليوم</p></div>`;
+  const q=cashierClientSearchQuery.trim().toLowerCase();
+  const entries=Object.entries(byClient).filter(([k,c])=>!q||(c.name||'').toLowerCase().includes(q));
   let html=`<div class="section-hdr"><span class="section-title">طلبات اليوم</span><span style="font-size:12px;color:var(--blue)">${entries.length} عميل</span></div>`;
+  html+=`<div class="menu-search-box">
+    <input type="text" id="cashier-client-search" class="menu-search-input" placeholder="🔍 دوّر عن عميل معين..." value="${cashierClientSearchQuery.replace(/"/g,'&quot;')}" oninput="setCashierClientSearch(this.value)">
+    ${cashierClientSearchQuery?`<button class="menu-search-clear" onclick="clearCashierClientSearch()">✕</button>`:''}
+  </div>`;
+  if(!entries.length) return html+`<div class="empty-state"><div class="empty-state-icon">👥</div><p>${q?'مفيش عميل بالاسم ده اليوم':'مفيش طلبات اليوم'}</p></div>`;
   html+=`<div class="audit-list">`;
   entries.forEach(([k,c])=>{
     const last=c.orders[c.orders.length-1];
@@ -2001,12 +2030,23 @@ function renderCashierClients(){
   html+=`</div>`;
   return html;
 }
+function setCashierClientSearch(v){
+  cashierClientSearchQuery=v;
+  const cursorPos=v.length;
+  refreshCashierTab();
+  const inp=$('cashier-client-search');
+  if(inp){ inp.focus(); inp.setSelectionRange(cursorPos,cursorPos); }
+}
+function clearCashierClientSearch(){
+  cashierClientSearchQuery='';
+  refreshCashierTab();
+}
 function renderCashierPrint(){
   return `<div class="menu-list" style="margin-top:8px">
     <div class="menu-item" onclick="printTodayAll()"><div class="menu-icon-box" style="background:var(--blue-light)">🖨️</div><div class="menu-texts"><div class="menu-title">طباعة طلبات اليوم</div><div class="menu-sub">كل الطلبات الجديدة والجارية</div></div></div>
     <div class="menu-item" onclick="printNewOnly()"><div class="menu-icon-box" style="background:var(--red-light)">🔴</div><div class="menu-texts"><div class="menu-title">طباعة الطلبات الجديدة فقط</div><div class="menu-sub">اللي لسه متستلمتش</div></div></div>
     <div class="menu-item" onclick="openPrintByClient()"><div class="menu-icon-box" style="background:var(--green-light)">👤</div><div class="menu-texts"><div class="menu-title">طباعة طلبات عميل</div><div class="menu-sub">اختر عميل وطبع طلباته</div></div></div>
-    <div class="menu-item" onclick="openPrintCalendar()"><div class="menu-icon-box" style="background:var(--purple-light)">📅</div><div class="menu-texts"><div class="menu-title">طباعة حسب التقويم</div><div class="menu-sub">اختار يوم معين واطبع طلباته</div></div></div>
+    <div class="menu-item" onclick="openPrintCalendar()"><div class="menu-icon-box" style="background:var(--purple-light)">📅</div><div class="menu-texts"><div class="menu-title">التقويم — عرض وطباعة حسب اليوم</div><div class="menu-sub">ارجع لأي يوم سابق واستعرض طلباته</div></div></div>
   </div>`;
 }
 function renderCashierExcel(){
@@ -2203,7 +2243,7 @@ function printClientOrders(name){
   printOrdersBulk(clientOrders, 'طلبات '+name);
 }
 // ============================================================
-// طباعة حسب التقويم — اختيار يوم معين وطباعة كل طلباته
+// التقويم — استعراض وطباعة طلبات أي يوم سابق (متاح للكاشير والأدمن)
 // ============================================================
 let calendarViewDate=new Date();
 let calendarSelectedDay=null;
@@ -2262,7 +2302,28 @@ function renderPrintCalendar(){
     </div>`;
   }
   html+=`</div>`;
-  html+=`<button class="btn btn-blue btn-full" style="margin-top:16px" ${calendarSelectedDay?'':'disabled'} onclick="printSelectedCalendarDay()">🖨️ طباعة طلبات اليوم المحدد</button>`;
+
+  if(calendarSelectedDay){
+    const dayStart=new Date(year,month,calendarSelectedDay,0,0,0,0).getTime();
+    const dayEnd=dayStart+86400000;
+    const dayOrders=Object.values(orders).filter(o=>!o.archived&&o.ts>=dayStart&&o.ts<dayEnd).sort((a,b)=>b.ts-a.ts);
+    const statusMap={new:'🔴 جديد',received:'🟡 جاري',ready:'🟢 جاهز'};
+    html+=`<div class="section-title" style="margin-top:18px">طلبات يوم ${calendarSelectedDay}/${month+1}/${year} (${dayOrders.length})</div>`;
+    if(!dayOrders.length){
+      html+=`<div class="empty-state"><div class="empty-state-icon">📋</div><p>مفيش طلبات في اليوم ده</p></div>`;
+    } else {
+      html+=`<div class="audit-list">`;
+      dayOrders.forEach(o=>{
+        const st=o.status||'new';
+        html+=`<div class="audit-item" style="cursor:pointer;justify-content:space-between" onclick="closeModal('modal-print-calendar');viewOrderDetail('${o.key}')">
+          <div><div style="font-size:13px;font-weight:600">${o.clientName}</div><div style="font-size:11px;color:var(--text-muted)">#${o.key.slice(-4).toUpperCase()} · ${fmtTime(o.ts)}</div></div>
+          <span style="font-size:11px;white-space:nowrap">${statusMap[st]||st}</span>
+        </div>`;
+      });
+      html+=`</div>`;
+      html+=`<button class="btn btn-blue btn-full" style="margin-top:12px" onclick="printSelectedCalendarDay()">🖨️ طباعة طلبات اليوم ده</button>`;
+    }
+  }
   $('print-calendar-body').innerHTML=html;
 }
 function printSelectedCalendarDay(){
@@ -2272,7 +2333,6 @@ function printSelectedCalendarDay(){
   const dayStart=new Date(year,month,calendarSelectedDay,0,0,0,0).getTime();
   const dayEnd=dayStart+86400000;
   const dayOrders=Object.values(orders).filter(o=>!o.archived&&o.ts>=dayStart&&o.ts<dayEnd).sort((a,b)=>a.ts-b.ts);
-  closeModal('modal-print-calendar');
   printOrdersBulk(dayOrders, 'طلبات يوم '+calendarSelectedDay+'/'+(month+1)+'/'+year);
 }
 async function exportExcel(){
@@ -2600,9 +2660,16 @@ async function deleteCategory(key){
   refreshAdminTab();
 }
 function renderAdminClients(){
-  const cls=Object.entries(clients).sort((a,b)=>a[1].name?.localeCompare(b[1].name));
+  const q=adminClientSearchQuery.trim().toLowerCase();
+  const cls=Object.entries(clients)
+    .filter(([k,c])=>!q||(c.name||'').toLowerCase().includes(q)||(c.customerId||'').toString().toLowerCase().includes(q)||(c.phone||'').includes(q))
+    .sort((a,b)=>a[1].name?.localeCompare(b[1].name));
   let html=`<div class="section-hdr"><span class="section-title">العملاء (${cls.length})</span><button class="section-action" onclick="openAddClientAdmin()">+ إضافة</button></div>`;
-  if(!cls.length) return html+`<div class="empty-state"><div class="empty-state-icon">👥</div><p>مفيش عملاء</p></div>`;
+  html+=`<div class="menu-search-box">
+    <input type="text" id="admin-client-search" class="menu-search-input" placeholder="🔍 دوّر بالاسم أو الكود أو التليفون..." value="${adminClientSearchQuery.replace(/"/g,'&quot;')}" oninput="setAdminClientSearch(this.value)">
+    ${adminClientSearchQuery?`<button class="menu-search-clear" onclick="clearAdminClientSearch()">✕</button>`:''}
+  </div>`;
+  if(!cls.length) return html+`<div class="empty-state"><div class="empty-state-icon">👥</div><p>${q?'مفيش عملاء بالبحث ده':'مفيش عملاء'}</p></div>`;
   html+=`<div class="audit-list">`;
   cls.forEach(([k,c])=>{
     html+=`<div class="audit-item" style="flex-direction:column;gap:4px;cursor:pointer" onclick="editClientAdmin('${k}')">
@@ -2621,6 +2688,17 @@ function renderAdminClients(){
   });
   html+=`</div>`;
   return html;
+}
+function setAdminClientSearch(v){
+  adminClientSearchQuery=v;
+  const cursorPos=v.length;
+  refreshAdminTab();
+  const inp=$('admin-client-search');
+  if(inp){ inp.focus(); inp.setSelectionRange(cursorPos,cursorPos); }
+}
+function clearAdminClientSearch(){
+  adminClientSearchQuery='';
+  refreshAdminTab();
 }
 function openAddClientAdmin(){
   editingClientKey=null;
@@ -2747,7 +2825,7 @@ async function deleteCashier(key){
 }
 function renderAdminOrders(){
   const allOrders=Object.values(orders).filter(o=>!o.archived).sort((a,b)=>b.ts-a.ts);
-  let html=`<div class="section-hdr"><span class="section-title">كل الطلبات (${allOrders.length})</span></div>
+  let html=`<div class="section-hdr"><span class="section-title">كل الطلبات (${allOrders.length})</span><button class="section-action" onclick="openPrintCalendar()">📅 عرض حسب التاريخ</button></div>
   <div class="table-wrap"><table class="data-table">
   <thead><tr><th>#</th><th>العميل</th><th>التاريخ</th><th>الوقت</th><th>الحالة</th><th></th></tr></thead><tbody>`;
   allOrders.slice(0,50).forEach(o=>{
