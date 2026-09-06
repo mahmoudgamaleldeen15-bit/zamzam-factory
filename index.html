@@ -1195,7 +1195,17 @@ function custNav(view){
 }
 async function renderCustContent(){
   const el=$('cust-content');
-  if(custCurrentView==='home') el.innerHTML=renderCustomerMenu();
+  if(custCurrentView==='home'){
+    // نحافظ على موضع تمرير شريط الأقسام زي ما هو (من غير أي قفزة) لو مفيش تبديل قسم فعلي حصل
+    // ده بيمنع إن أي تحديث في الكارت (إضافة/تعديل منتج) يرجّع الشاشة لأول القايمة من غير داعي
+    const prevTabs=document.querySelector('.menu-tabs');
+    const prevScrollLeft=prevTabs?prevTabs.scrollLeft:null;
+    el.innerHTML=renderCustomerMenu();
+    if(prevScrollLeft!==null){
+      const newTabs=document.querySelector('.menu-tabs');
+      if(newTabs) newTabs.scrollLeft=prevScrollLeft;
+    }
+  }
   else if(custCurrentView==='cart') el.innerHTML=renderCart();
   else if(custCurrentView==='orders'){
     el.innerHTML='<div class="empty-state"><div class="empty-state-icon">⏳</div><p>بنجيب طلباتك...</p></div>';
@@ -1307,10 +1317,10 @@ function renderCustomerMenu(){
 function setMenuCat(k){
   menuActiveCat=k;
   renderCustContent();
-  // بعد إعادة رسم القائمة، نتأكد إن التاب المختار يفضل ظاهر في الشاشة (مش يرجع لأول القايمة)
+  // بعد إعادة رسم القائمة، نعمل سكرول بالمسافة اللازمة بس (مش سكرول كامل كل مرة) عشان التاب المختار يبان
   requestAnimationFrame(()=>{
     const activeBtn=document.querySelector('.menu-tabs .tab-btn.active');
-    if(activeBtn) activeBtn.scrollIntoView({inline:'center', block:'nearest', behavior:'smooth'});
+    if(activeBtn) activeBtn.scrollIntoView({inline:'nearest', block:'nearest', behavior:'smooth'});
   });
 }
 // بيبحث عن منتج بالاسم أثناء الكتابة، وبيحافظ على تركيز الكيبورد في نفس مكانه بعد إعادة الرسم
