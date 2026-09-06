@@ -153,6 +153,11 @@
   .btn-blue{background:var(--blue);color:#fff;flex:1}
   .btn-blue:active{background:var(--blue-dark)}
   .btn-green{background:var(--green);color:#fff;flex:1}
+  .confirm-send-btn{animation:confirmPulse 1.6s ease-in-out infinite}
+  @keyframes confirmPulse{
+    0%,100%{box-shadow:0 3px 10px rgba(59,148,34,.35);transform:scale(1)}
+    50%{box-shadow:0 3px 22px rgba(59,148,34,.65);transform:scale(1.03)}
+  }
   .btn-ghost{background:var(--gray-100);color:var(--text-sub);padding:0 12px}
   .btn-red{background:var(--red);color:#fff;flex:1}
   .btn-outline{background:#fff;color:var(--blue);border:1.5px solid var(--blue);flex:1}
@@ -220,7 +225,8 @@
   .menu-tabs .tab-btn{font-weight:700;font-size:13px;color:var(--text-sub)}
   .menu-tabs .tab-btn.active{color:var(--blue)}
   .menu-list{display:flex;flex-direction:column;gap:10px}
-  .menu-card{background:#fff;border:.5px solid var(--gray-border);border-radius:var(--r);box-shadow:var(--shadow);padding:12px;display:flex;align-items:center;gap:12px}
+  .menu-card{background:#fff;border:.5px solid var(--gray-border);border-radius:var(--r);box-shadow:var(--shadow);padding:12px;display:flex;align-items:center;gap:12px;transition:.2s}
+  .menu-card.in-cart{background:var(--green-light);border:1.5px solid var(--green)}
   .menu-card-click{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
   .menu-card-click.clickable{cursor:pointer}
   .menu-card-click.clickable:active{opacity:.75}
@@ -638,7 +644,7 @@
     <div id="confirm-order-summary" style="background:var(--gray-50);border-radius:var(--r);padding:12px;margin-bottom:16px;font-size:12px;color:var(--text-sub);line-height:1.9"></div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost" style="flex:1;height:44px" onclick="closeModal('modal-confirm-send')">إلغاء</button>
-      <button class="btn btn-green" style="flex:2;height:48px;font-size:15px;font-weight:800;box-shadow:0 3px 10px rgba(59,148,34,.35)" onclick="sendOrder()">✅ تأكيد الإرسال</button>
+      <button class="btn btn-green confirm-send-btn" style="flex:2;height:52px;font-size:16.5px;font-weight:800" onclick="sendOrder()">✅ تأكيد الإرسال</button>
     </div>
   </div>
 </div>
@@ -1262,7 +1268,7 @@ function renderCustomerMenu(){
     const unitBadges=needsDetail
       ? entries.map(e=>`<span class="menu-card-unitbadge menu-card-edit-hint">${e.unit} × ${e.qty}</span>`).join('')
       : (singleUnit?`<span class="menu-card-unitbadge">${singleUnit}</span>`:'');
-    html+=`<div class="menu-card${avail?'':' unavailable'}">
+    html+=`<div class="menu-card${avail?'':' unavailable'}${totalQty>0?' in-cart':''}">
       <div class="menu-card-click${(avail&&needsDetail)?' clickable':''}"${clickAttr}>
         <div class="menu-card-thumb">${p.emoji||'📦'}</div>
         <div class="menu-card-info">
