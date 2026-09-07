@@ -154,6 +154,18 @@
   .btn-blue:active{background:var(--blue-dark)}
   .btn-green{background:var(--green);color:#fff;flex:1}
   .confirm-send-btn{animation:confirmPulse 1.6s ease-in-out infinite}
+  .confirm-send-btn.sending{animation:none;opacity:.75;cursor:not-allowed}
+  .confirm-send-btn.fail-state{background:var(--red)!important;animation:none}
+  .order-result-box{background:#fff;border-radius:20px;padding:32px 26px 26px;width:min(90vw,360px);text-align:center;box-shadow:0 10px 50px rgba(0,0,0,.35);animation:popupPop .35s cubic-bezier(.34,1.56,.64,1)}
+  .order-result-title{font-size:19px;font-weight:800;margin-top:4px}
+  .order-result-sub{font-size:12.5px;color:var(--text-sub);margin-top:8px;line-height:1.7}
+  .success-check{width:88px;height:88px;margin:0 auto}
+  .success-check-circle{stroke:var(--green);stroke-width:2.5;fill:none;stroke-dasharray:151;stroke-dashoffset:151;animation:circleDraw .5s ease-out forwards}
+  .success-check-mark{stroke:var(--green);stroke-width:3.5;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:checkDraw .35s .45s ease-out forwards}
+  @keyframes circleDraw{to{stroke-dashoffset:0}}
+  @keyframes checkDraw{to{stroke-dashoffset:0}}
+  .fail-x-circle{stroke:var(--red);stroke-width:2.5;fill:none;stroke-dasharray:151;stroke-dashoffset:151;animation:circleDraw .5s ease-out forwards}
+  .fail-x-mark{stroke:var(--red);stroke-width:3.5;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:34;stroke-dashoffset:34;animation:checkDraw .35s .45s ease-out forwards}
   @keyframes confirmPulse{
     0%,100%{box-shadow:0 3px 10px rgba(59,148,34,.35);transform:scale(1)}
     50%{box-shadow:0 3px 22px rgba(59,148,34,.65);transform:scale(1.03)}
@@ -642,10 +654,21 @@
     <p class="modal-title">⚠️ تأكيد إرسال الطلب</p>
     <p style="font-size:13px;color:var(--text-sub);margin-bottom:16px">بعد الإرسال مش هينفع تعدل — بس تقدر تضيف منتجات جديدة</p>
     <div id="confirm-order-summary" style="background:var(--gray-50);border-radius:var(--r);padding:12px;margin-bottom:16px;font-size:12px;color:var(--text-sub);line-height:1.9"></div>
+    <div id="send-fail-reason" style="display:none;background:var(--red-light);color:var(--red);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:12px;font-size:12.5px;font-weight:700;text-align:center"></div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost" style="flex:1;height:44px" onclick="closeModal('modal-confirm-send')">إلغاء</button>
-      <button class="btn btn-green confirm-send-btn" style="flex:2;height:52px;font-size:16.5px;font-weight:800" onclick="sendOrder()">✅ تأكيد الإرسال</button>
+      <button class="btn btn-green confirm-send-btn" id="confirm-send-btn" style="flex:2;height:52px;font-size:16.5px;font-weight:800" onclick="sendOrder()">✅ تأكيد الإرسال</button>
     </div>
+  </div>
+</div>
+
+<!-- شاشة نتيجة الإرسال (نجاح/فشل) بأنيميشن -->
+<div class="modal-overlay" id="modal-order-result" style="align-items:center;z-index:400">
+  <div class="order-result-box" id="order-result-box">
+    <div id="order-result-icon-wrap"></div>
+    <div class="order-result-title" id="order-result-title"></div>
+    <div class="order-result-sub" id="order-result-sub"></div>
+    <button class="btn btn-blue btn-full" style="margin-top:20px;height:46px" id="order-result-action" onclick="closeModal('modal-order-result')">تمام</button>
   </div>
 </div>
 
@@ -1610,6 +1633,7 @@ function openConfirmSend(){
     openModal('modal-customer-login');
     return;
   }
+  resetConfirmSendBtn();
   const showP=!!adminSettings.showPrices;
   let total=0;
   const lines=cart.map(i=>{
@@ -1622,8 +1646,34 @@ function openConfirmSend(){
   $('confirm-order-summary').innerHTML=lines+totalHtml;
   openModal('modal-confirm-send');
 }
+// بيرجّع الزرار لشكله العادي (بعد فشل سابق أو فتح جديد للمودال)
+function resetConfirmSendBtn(){
+  const btn=$('confirm-send-btn');
+  btn.disabled=false;
+  btn.classList.remove('sending','fail-state');
+  btn.textContent='✅ تأكيد الإرسال';
+  $('send-fail-reason').style.display='none';
+}
+// بيلف أي Promise بمهلة قصوى — عشان لو الشبكة واقفة تمامًا منستناش للأبد من غير ما نعرف العميل
+function withTimeout(promise, ms, timeoutMsg){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error(timeoutMsg)), ms))
+  ]);
+}
 async function sendOrder(){
-  closeModal('modal-confirm-send');
+  const btn=$('confirm-send-btn');
+  // فحص سريع: لو مفيش نت خالص من الأساس، نوقف على طول من غير ما نستنى
+  if(navigator.onLine===false){
+    showSendFailure('📵 مفيش اتصال بالإنترنت خالص — اتأكد من الشبكة وحاول تاني');
+    return;
+  }
+  btn.disabled=true;
+  btn.classList.add('sending');
+  btn.classList.remove('fail-state');
+  btn.textContent='⏳ جاري الإرسال...';
+  $('send-fail-reason').style.display='none';
+
   const isAddition = cartOrderId!==null;
   const showP=!!adminSettings.showPrices;
   const baseItems = cart.map(i=>{
@@ -1631,64 +1681,115 @@ async function sendOrder(){
     return {name:i.name,unit:i.unit,qty:i.qty,note:i.note||'',emoji:i.emoji||'',unitPrice,lineTotal:unitPrice*i.qty};
   });
 
-  if(isAddition){
-    // إضافة على طلب موجود
-    const ref=db.ref('factory/orders/'+cartOrderId+'/additions').push();
-    const additionKey=ref.key;
-    const itemsWithPhotos=[];
-    for(const [idx,ci] of cart.entries()){
-      let photoCount=0;
-      if(ci.photos&&ci.photos.length){
-        for(const [pIdx,ph] of ci.photos.entries()){
-          await db.ref('factory/orderPhotos/'+cartOrderId+'/addition_'+additionKey+'/item'+idx+'/'+pIdx).set(ph.data);
+  // مهلة سخية (35 ثانية) عشان الشبكات الضعيفة جدًا تاخد وقتها وتلقط، بدل ما نديها فرصة قليلة ونحكم عليها بالفشل بسرعة
+  const TIMEOUT_MS=35000;
+
+  try{
+    if(isAddition){
+      const ref=db.ref('factory/orders/'+cartOrderId+'/additions').push();
+      const additionKey=ref.key;
+      const itemsWithPhotos=[];
+      for(const [idx,ci] of cart.entries()){
+        let photoCount=0;
+        if(ci.photos&&ci.photos.length){
+          for(const [pIdx,ph] of ci.photos.entries()){
+            await withTimeout(db.ref('factory/orderPhotos/'+cartOrderId+'/addition_'+additionKey+'/item'+idx+'/'+pIdx).set(ph.data), TIMEOUT_MS, 'TIMEOUT');
+          }
+          photoCount=ci.photos.length;
         }
-        photoCount=ci.photos.length;
+        itemsWithPhotos.push({...baseItems[idx],photoCount});
       }
-      itemsWithPhotos.push({...baseItems[idx],photoCount});
-    }
-    const additionTotal=itemsWithPhotos.reduce((s,i)=>s+(i.lineTotal||0),0);
-    await ref.set({items:itemsWithPhotos, ts:Date.now(), additionNum:Date.now(), total:additionTotal});
-    // notify cashier
-    await db.ref('factory/orders/'+cartOrderId+'/hasNewAddition').set(true);
-    await db.ref('factory/orders/'+cartOrderId+'/lastAdditionTs').set(Date.now());
-    addAudit('إضافة على طلب','#'+cartOrderId.slice(-4)+' — '+currentUser.name);
-    toast('✅ تم إرسال الإضافة!');
-    if(whatsappReady()){
-      openWhatsAppOrder(cartOrderId, itemsWithPhotos, {isAddition:true, clientName:currentUser.name, customerId:currentUser.customerId||currentUser.id, ts:Date.now()});
-    }
-  } else {
-    const ref=db.ref('factory/orders').push();
-    const itemsWithPhotos=[];
-    for(const [idx,ci] of cart.entries()){
-      let photoCount=0;
-      if(ci.photos&&ci.photos.length){
-        for(const [pIdx,ph] of ci.photos.entries()){
-          await db.ref('factory/orderPhotos/'+ref.key+'/item'+idx+'/'+pIdx).set(ph.data);
+      const additionTotal=itemsWithPhotos.reduce((s,i)=>s+(i.lineTotal||0),0);
+      await withTimeout(ref.set({items:itemsWithPhotos, ts:Date.now(), additionNum:Date.now(), total:additionTotal}), TIMEOUT_MS, 'TIMEOUT');
+      await withTimeout(db.ref('factory/orders/'+cartOrderId+'/hasNewAddition').set(true), TIMEOUT_MS, 'TIMEOUT');
+      await withTimeout(db.ref('factory/orders/'+cartOrderId+'/lastAdditionTs').set(Date.now()), TIMEOUT_MS, 'TIMEOUT');
+      addAudit('إضافة على طلب','#'+cartOrderId.slice(-4)+' — '+currentUser.name);
+      // نجاح — نبعت واتساب فورًا (من غير ما نستنى نتيجته) ونعرض شاشة النجاح
+      if(whatsappReady()){
+        openWhatsAppOrder(cartOrderId, itemsWithPhotos, {isAddition:true, clientName:currentUser.name, customerId:currentUser.customerId||currentUser.id, ts:Date.now()});
+      }
+      onSendSuccess('تم إرسال الإضافة!', 'الإضافة وصلت للمحاسب على طول');
+    } else {
+      const ref=db.ref('factory/orders').push();
+      const itemsWithPhotos=[];
+      for(const [idx,ci] of cart.entries()){
+        let photoCount=0;
+        if(ci.photos&&ci.photos.length){
+          for(const [pIdx,ph] of ci.photos.entries()){
+            await withTimeout(db.ref('factory/orderPhotos/'+ref.key+'/item'+idx+'/'+pIdx).set(ph.data), TIMEOUT_MS, 'TIMEOUT');
+          }
+          photoCount=ci.photos.length;
         }
-        photoCount=ci.photos.length;
+        itemsWithPhotos.push({...baseItems[idx],photoCount});
       }
-      itemsWithPhotos.push({...baseItems[idx],photoCount});
+      const orderTotal=itemsWithPhotos.reduce((s,i)=>s+(i.lineTotal||0),0);
+      const orderData={
+        clientKey: currentUser.key,
+        clientName: currentUser.name,
+        customerId: currentUser.customerId||currentUser.id,
+        items: itemsWithPhotos,
+        total: orderTotal,
+        ts: Date.now(),
+        status: 'new'
+      };
+      await withTimeout(ref.set(orderData), TIMEOUT_MS, 'TIMEOUT');
+      addAudit('طلب جديد','#'+ref.key.slice(-4)+' — '+currentUser.name);
+      // نجاح — في نفس اللحظة نبعت واتساب لو مفعّل (من غير ما نستنى نتيجته عشان مايأخرش ظهور شاشة النجاح للعميل)
+      if(whatsappReady()){
+        openWhatsAppOrder(ref.key, itemsWithPhotos, {isAddition:false, clientName:currentUser.name, customerId:currentUser.customerId||currentUser.id, ts:orderData.ts});
+      }
+      onSendSuccess('تم إرسال طلبك بنجاح!', 'رقم الطلب #'+ref.key.slice(-4).toUpperCase()+' — دور عليه في تاب طلباتي');
     }
-    const orderTotal=itemsWithPhotos.reduce((s,i)=>s+(i.lineTotal||0),0);
-    const orderData={
-      clientKey: currentUser.key,
-      clientName: currentUser.name,
-      customerId: currentUser.customerId||currentUser.id,
-      items: itemsWithPhotos,
-      total: orderTotal,
-      ts: Date.now(),
-      status: 'new'
-    };
-    await ref.set(orderData);
-    addAudit('طلب جديد','#'+ref.key.slice(-4)+' — '+currentUser.name);
-    toast('✅ تم إرسال طلبك رقم #'+ref.key.slice(-4).toUpperCase()+' — دور عليه في تاب طلباتي');
-    if(whatsappReady()){
-      openWhatsAppOrder(ref.key, itemsWithPhotos, {isAddition:false, clientName:currentUser.name, customerId:currentUser.customerId||currentUser.id, ts:orderData.ts});
+  }catch(err){
+    console.error('sendOrder error:', err);
+    let reason;
+    if(err&&err.message==='TIMEOUT'){
+      reason='📶 الشبكة ضعيفة جدًا والطلب مقدرش يوصل خلال وقت كافي — اتأكد من الاتصال وحاول تاني';
+    } else if(navigator.onLine===false){
+      reason='📵 مفيش اتصال بالإنترنت خالص — اتأكد من الشبكة وحاول تاني';
+    } else if(err&&err.code==='PERMISSION_DENIED'){
+      reason='🚫 مفيش صلاحية لإرسال الطلب — كلم الأدمن';
+    } else {
+      reason='⚠️ حصل خطأ غير متوقع أثناء الإرسال — حاول تاني بعد شوية';
     }
+    showSendFailure(reason);
   }
+}
+function showSendFailure(reason){
+  const btn=$('confirm-send-btn');
+  btn.disabled=false;
+  btn.classList.remove('sending');
+  btn.classList.add('fail-state');
+  btn.textContent='❌ لم يتم الإرسال — إعادة المحاولة';
+  $('send-fail-reason').textContent=reason;
+  $('send-fail-reason').style.display='block';
+}
+// بينفّذ لما الطلب يترسل بنجاح فعليًا (اتأكد من قاعدة البيانات) — بيقفل مودال التأكيد ويعرض شاشة النجاح المتحركة
+function onSendSuccess(title, sub){
+  closeModal('modal-confirm-send');
+  resetConfirmSendBtn();
   cart=[]; cartOrderId=null;
   updateCartDot();
-  custNav('orders');
+  showOrderResult(true, title, sub);
+}
+function showOrderResult(success, title, sub){
+  $('order-result-title').textContent=title;
+  $('order-result-title').style.color=success?'var(--green)':'var(--red)';
+  $('order-result-sub').textContent=sub||'';
+  $('order-result-icon-wrap').innerHTML=success?`
+    <svg class="success-check" viewBox="0 0 52 52">
+      <circle class="success-check-circle" cx="26" cy="26" r="24"/>
+      <path class="success-check-mark" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+    </svg>` : `
+    <svg class="success-check" viewBox="0 0 52 52">
+      <circle class="fail-x-circle" cx="26" cy="26" r="24"/>
+      <path class="fail-x-mark" d="M17 17l18 18M35 17L17 35"/>
+    </svg>`;
+  $('order-result-action').onclick=()=>{
+    closeModal('modal-order-result');
+    if(success) custNav('orders');
+  };
+  openModal('modal-order-result');
 }
 async function renderMyOrders(){
   // بندمج نتيجتين: بحث بمفتاح الحساب + بحث بكود العميل — عشان لو أي طلب اتسجل بمفتاح مختلف (مثلاً بسبب حساب مكرر بنفس الكود) يفضل يظهر
